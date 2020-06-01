@@ -1,0 +1,2 @@
+extensions.commands.basic
+extensions.club.members
