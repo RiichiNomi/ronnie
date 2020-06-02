@@ -4,6 +4,14 @@ import discord
 class BasicCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    @commands.command()
+    async def echo(self, ctx, arg):
+        await ctx.send(arg)
+
+    @commands.command()
+    async def say_bold(self, ctx):
+        await ctx.send('**Hello**')
     
     @commands.command()
     async def marco(self, ctx):

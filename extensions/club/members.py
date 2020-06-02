@@ -1,62 +1,12 @@
 import os
-
 import sqlite3
-
 from discord.ext import commands
 from dotenv import load_dotenv
 
 load_dotenv('var.env')
 
 MEMBERS_FILE = os.environ.get('MEMBERS_FILE')
-
-class Lobby():
-    def __init__(self):
-        self.size = 0
-
-        self.players = []
-        self.playersInLobby = []
-        self.playersInGame = []
-
-        self.locked = False
-
-    def clear(self):
-        self.size = 0
-
-        self.players.clear()
-        self.playersInLobby.clear()
-        self.playersInGame.clear()
-
-    def add(self, user):
-        self.players.append(user)
-        self.size += 1
-
-    def remove(self, user):
-        self.players.remove(user)
-        self.size -= 1
-    
-class LobbyInterface(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-        self.lobby = Lobby()
-
-    @commands.command(name='join')
-    async def member_join_list(self, ctx):
-        self.lobby.add(ctx.author)
-
-    @commands.command(name='leave')
-    async def member_leave_list(self, ctx):
-        self.lobby.remove(ctx.author)
-
-    @commands.command(name='list')
-    async def display_lobby_state(self, ctx):
-        response = f'''There are currently {self.lobby.size} player(s) in the lobby: \n'''
-
-        for i in range(0, len(self.lobby.players)):
-            player = self.lobby.players[i]
-            response += f'''{i+1}. {player.nick}\n'''
-
-        await ctx.send(response)
-    
+        
 class MemberInterface(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -148,4 +98,3 @@ class MemberInterface(commands.Cog):
 
 def setup(bot):
     bot.add_cog(MemberInterface(bot))
-    bot.add_cog(LobbyInterface(bot))

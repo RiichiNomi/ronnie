@@ -1,2 +1,3 @@
 extensions.commands.basic
 extensions.club.members
+extensions.club.lobby
