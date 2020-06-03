@@ -6,6 +6,13 @@ from dotenv import load_dotenv
 load_dotenv('var.env')
 
 MEMBERS_FILE = os.environ.get('MEMBERS_FILE')
+
+class ClubMember():
+    def __init__(self):
+        self.name = None
+        
+        self.points = 0
+        self.rank = None
         
 class MemberInterface(commands.Cog):
     def __init__(self, bot):

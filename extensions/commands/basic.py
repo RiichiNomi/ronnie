@@ -6,6 +6,14 @@ class BasicCommands(commands.Cog):
         self.bot = bot
 
     @commands.command()
+    async def attachments(self, ctx):
+        await ctx.send(f'{ctx.message.attachments}')
+
+    @commands.command(name='read')
+    async def read_gif(self, ctx):
+        await ctx.send(' https://tenor.com/view/read-nene-gif-5384736')
+
+    @commands.command()
     async def echo(self, ctx, arg):
         await ctx.send(arg)
 
