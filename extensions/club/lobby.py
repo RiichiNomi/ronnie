@@ -58,7 +58,7 @@ class Lobby():
 
             self.size -= 1
     
-    def shuffle(self):
+    def shuffle(self, table_size):
         n = 0
         table_players = []
         while (self.numReady > 0):
@@ -71,7 +71,7 @@ class Lobby():
             table_players.append(p)
 
             n += 1
-            if (n == 4):
+            if (n == table_size):
                 self.tables.append(table_players)
                 self.numTables += 1
                 n = 0
@@ -116,14 +116,118 @@ class Lobby():
             self.ready.remove(member)
             self.numReady -= 1
                 
-class LobbyInterface(commands.Cog):
+class LobbyInterface(commands.Cog, name='lobby'):
     def __init__(self, bot):
         self.bot = bot
         self.lobby = Lobby()
         self.debug_mode = False
 
+    @commands.command(name='join')
+    async def member_join_list(self, ctx):
+        '''
+        Join the lobby. 
+        '''
+        if (self.lobby.exists(ctx.author)):
+            await ctx.send(f'<@{ctx.author.id}> already in the lobby.')
+        else:
+            self.lobby.add(ctx.author)
+
+            await ctx.send(f'{ctx.author.mention} joined the lobby ({self.lobby.size})')
+    
+    @commands.command(name='leave', aliases=['rme', 'removeme'])
+    async def member_leave_list(self, ctx):
+        '''
+        Leave the lobby.
+        '''
+        if (self.lobby.exists(ctx.author)):
+            self.lobby.remove(ctx.author)
+            await ctx.send(f'{ctx.author.mention} left the lobby. ({self.lobby.size})')
+        else:
+            await ctx.send(f'{ctx.author.mention} not in the lobby.')
+
+    @commands.command(name='ready')
+    async def member_set_status_ready(self, ctx):
+        '''
+        Set status as ready. 
+        '''
+        if (self.lobby.exists(ctx.author)):
+            self.lobby.set_ready(ctx.author)
+
+            await ctx.send(f'{ctx.author.mention} marked as ready! (Ready: {self.lobby.numReady})')
+        else:
+            await ctx.send(f'{ctx.author.mention} not in the lobby.')
+
+    @commands.command(name='unready')
+    async def member_set_status_not_ready(self, ctx):
+        '''
+        Set status as not ready.
+        '''
+        if self.lobby.exists(ctx.author):
+            self.lobby.unset_ready(ctx.author)
+
+            await ctx.send(f'{ctx.author.mention} marked as not ready! (Ready: {self.lobby.numReady})')
+        else:
+            await ctx.send(f'{ctx.author.mention} not in the lobby.')
+    
+    @commands.command(name='shuffle')
+    async def list_shuffle(self, ctx, arg=None):
+        '''
+        Creates random tables of players who have readied up.
+        '''
+        table_size = 3 if arg == 'sanma' else 4
+
+        if self.lobby.numReady == 0:
+            await ctx.send(f"{ctx.author.mention} No players ready at the moment. Type !ready to ready up.")
+        elif self.lobby.numReady < table_size:
+            await ctx.send(f"{ctx.author.mention} Not enough ready players for a full table. Current number: {self.lobby.numReady}")
+        else:
+            response = f'''Creating tables:\n'''
+
+            leftover = self.lobby.shuffle(table_size)
+
+            tableNumber = 0
+            for table in self.lobby.tables:
+                tableNumber += 1
+                t = f'====== Table {tableNumber} ======\n'
+                l = len(t)
+                for player in table:
+                    t += f'{player.display_name}\n'
+                
+                response += t
+            
+            response += '==================\n'
+            
+            for player in leftover:
+                response += f'{player.display_name}\n'
+            
+            await ctx.send(response)
+    
+    @commands.command(name='tablegg', aliases=['gg'])
+    async def table_gg(self, ctx):
+        '''
+        Places all players in a table back in the lobby.
+        '''
+        if (self.lobby.exists(ctx.author)):
+            if ctx.author in self.lobby.players or ctx.author in self.lobby.ready:
+                await ctx.send(f"<@{ctx.author.id}> not in a table.")
+            else:
+                members_removed = self.lobby.table_end(ctx.author)
+
+                response = ""
+                for player in members_removed:
+                    response += f'{player.mention} '
+                
+                response += 'marked as done playing.'
+
+                await ctx.send(response)
+        else:
+            await ctx.send(f'{ctx.author.mention} not in the lobby.')
+
     @commands.command(name='remove')
     async def member_remove_other(self, ctx):
+        '''
+        Removes a mentioned player in the lobby.
+        '''
         removed = []
         notPresent = []
         for member in ctx.message.mentions:
@@ -154,79 +258,12 @@ class LobbyInterface(commands.Cog):
             response += 'not in the lobby'
 
             await ctx.send(response)
-    
-    @commands.command(name='debug')
-    async def set_debug_mode(self, ctx, arg):
-        if arg == 'on':
-            self.debug_mode = True
-        else:
-            self.debug_mode = False
-
-    @commands.command(name='ready')
-    async def member_set_status_ready(self, ctx):
-        if (self.lobby.exists(ctx.author)):
-            self.lobby.set_ready(ctx.author)
-
-            await ctx.send(f'{ctx.author.mention} marked as ready! (Ready: {self.lobby.numReady})')
-        else:
-            await ctx.send(f'{ctx.author.mention} not in the lobby.')
-    
-    @commands.command(name='unready')
-    async def member_set_status_not_ready(self, ctx):
-        if self.lobby.exists(ctx.author):
-            self.lobby.unset_ready(ctx.author)
-
-            await ctx.send(f'{ctx.author.mention} marked as not ready! (Ready: {self.lobby.numReady})')
-        else:
-            await ctx.send(f'{ctx.author.mention} not in the lobby.')
-
-    @commands.command(name='shuffle')
-    async def list_shuffle(self, ctx):
-        if self.lobby.numReady == 0:
-            await ctx.send(f"{ctx.author.mention} No players ready at the moment. Type !ready to ready up.")
-        elif self.lobby.numReady < 4:
-            await ctx.send(f"{ctx.author.mention} Not enough ready players for a full table. Current number: {self.lobby.numReady}")
-        else:
-            response = f'''Creating tables:\n'''
-
-            leftover = self.lobby.shuffle()
-
-            tableNumber = 0
-            for table in self.lobby.tables:
-                tableNumber += 1
-                t = f'====== Table {tableNumber} ======\n'
-                l = len(t)
-                for player in table:
-                    t += f'{player.display_name}\n'
-                
-                response += t
-            
-            response += '==================\n'
-            
-            for player in leftover:
-                response += f'{player.display_name}\n'
-            
-            await ctx.send(response)
-                
-    @commands.command(name='join')
-    async def member_join_list(self, ctx):
-        if (self.lobby.exists(ctx.author)):
-            await ctx.send(f'<@{ctx.author.id}> already in the lobby.')
-        else:
-            self.lobby.add(ctx.author)
-
-            await ctx.send(f'{ctx.author.mention} joined the lobby ({self.lobby.size})')
-
-    @commands.command(name='leave', aliases=['rme', 'removeme'])
-    async def member_leave_list(self, ctx):
-        if (self.lobby.exists(ctx.author)):
-            self.lobby.remove(ctx.author)
-            await ctx.send(f'{ctx.author.mention} left the lobby. ({self.lobby.size})')
-        else:
-            await ctx.send(f'{ctx.author.mention} not in the lobby.')
 
     @commands.command(name='list')
     async def display_lobby_state(self, ctx):
+        '''
+        Display the current status of the lobby.
+        '''
         response = f'''There are currently {self.lobby.size} player(s) in the lobby:\n'''
         response += f'{self.lobby.numPlayers} Waiting, {self.lobby.numReady} Ready, {self.lobby.numInGame} In Game\n'
         response += '='*25 + '\n'
@@ -267,30 +304,19 @@ class LobbyInterface(commands.Cog):
 
         # await ctx.send(f'{self.lobby.players}')
         # await ctx.send(f'{self.lobby.tables}')
-    
-    @commands.command(name='tablegg', aliases=['gg'])
-    async def table_gg(self, ctx):
-        if (self.lobby.exists(ctx.author)):
-            if ctx.author in self.lobby.players or ctx.author in self.lobby.ready:
-                await ctx.send(f"<@{ctx.author.id}> not in a table.")
-            else:
-                members_removed = self.lobby.table_end(ctx.author)
 
-                response = ""
-                for player in members_removed:
-                    response += f'{player.mention} '
-                
-                response += 'marked as done playing.'
-
-                await ctx.send(response)
-        else:
-            await ctx.send(f'{ctx.author.mention} not in the lobby.')
-
-    @commands.command(name='clearlist')
+    @commands.command(name='clearlist', hidden=True)
     async def clear_list(self, ctx):
         self.lobby.clear()
 
         await ctx.send(f'List cleared.')
+
+    @commands.command(name='debug', hidden=True)
+    async def set_debug_mode(self, ctx, arg):
+        if arg == 'on':
+            self.debug_mode = True
+        else:
+            self.debug_mode = False
             
 def setup(bot):
     bot.add_cog(LobbyInterface(bot))

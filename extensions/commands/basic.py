@@ -5,6 +5,16 @@ class BasicCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    @commands.command(name='cogs')
+    async def show_cogs(self, ctx):
+        response = f''
+        for name in self.bot.cogs:
+            response += f'{name}:\n'
+            for command in self.bot.cogs[name].get_commands():
+                print(command.__doc__)
+    
+        await ctx.send(response)
+
     @commands.command()
     async def attachments(self, ctx):
         await ctx.send(f'{ctx.message.attachments}')
