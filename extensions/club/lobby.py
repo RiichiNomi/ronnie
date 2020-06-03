@@ -20,6 +20,9 @@ class Lobby():
         self.size = 0
         self.numPlayers = 0
         self.numReady = 0
+        self.numInGame = 0
+        self.numTables = 0
+        
         self.players.clear()
         self.ready.clear()
         self.tables.clear()
@@ -115,6 +118,9 @@ class Lobby():
 
             self.ready.remove(member)
             self.numReady -= 1
+    
+    def display(self, member):
+            return f'{member.display_name}'
                 
 class LobbyInterface(commands.Cog, name='lobby'):
     def __init__(self, bot):
@@ -191,7 +197,8 @@ class LobbyInterface(commands.Cog, name='lobby'):
                 t = f'====== Table {tableNumber} ======\n'
                 l = len(t)
                 for player in table:
-                    t += f'{player.display_name}\n'
+                    name = self.lobby.display(player)
+                    t += f'{name}\n'
                 
                 response += t
             
@@ -277,7 +284,8 @@ class LobbyInterface(commands.Cog, name='lobby'):
 
             for player in table:
                 playerNum += 1
-                t += f'{playerNum}. **(In Game) {player.display_name}\n**'
+                name = self.lobby.display(player)
+                t += f'{playerNum}. **(In Game) {name}\n**'
 
             response += t
         
@@ -286,11 +294,13 @@ class LobbyInterface(commands.Cog, name='lobby'):
         
         for player in self.lobby.ready:
             playerNum += 1
-            response += f'{playerNum}. **(Ready) {player.display_name}**\n'
+            name = self.lobby.display(player)
+            response += f'{playerNum}. **(Ready) {name}**\n'
 
         for player in self.lobby.players:
             playerNum += 1
-            response += f'{playerNum}. {player.display_name}\n'
+            name = self.lobby.display(player)
+            response += f'{playerNum}. {name}\n'
 
         response += "="*25 + '\n' + \
                     f"Commands: !list, !join, !leave, !ready, !unready, !shuffle, !tablegg"
@@ -317,6 +327,12 @@ class LobbyInterface(commands.Cog, name='lobby'):
             self.debug_mode = True
         else:
             self.debug_mode = False
+    
+    @commands.command(hidden=True)
+    async def test(self, ctx):
+        for role in ctx.author.roles:
+            await ctx.send(str(role))
+
             
 def setup(bot):
     bot.add_cog(LobbyInterface(bot))

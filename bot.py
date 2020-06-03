@@ -5,11 +5,12 @@ import time
 from discord.ext import commands
 from dotenv import load_dotenv
 
+from extensions_startup import startup_extensions
+
 #LOAD ENVIRONMENT VARIABLES
 load_dotenv('variables.env')
 
-EXTENSIONS_FILE = 'startup_extensions.txt'
-PREFIX = '!'
+PREFIX = os.environ.get('COMMAND_PREFIX')
 TOKEN = os.environ.get('BOT_TOKEN')
 
 #INSTANTIATE BOT
@@ -74,12 +75,8 @@ async def reload_extension(ctx, extension_name):
 
 #START THE BOT
 if __name__ == "__main__":
-    with open(EXTENSIONS_FILE, 'r') as f:
-        startup_extensions = f.read().split('\n')
-    
+    bot.remove_command('help')
     for extension in startup_extensions:
         bot.load_extension(extension)
-
-    bot.remove_command('help')
 
     bot.run(TOKEN)
