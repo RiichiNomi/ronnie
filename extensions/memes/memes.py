@@ -28,7 +28,6 @@ class MemesInterface(commands.Cog):
     
     #USER COMMANDS
     
-    
     @commands.command(name='meme', aliases=['memes'])
     async def user_get_meme(self, ctx, meme_name=None):
         if meme_name == None:
@@ -148,9 +147,9 @@ class MemesInterface(commands.Cog):
 
         await ctx.send(response)
     
-
     
     @commands.command(name='approval-list')
+    @commands.has_permissions(administrator=True)
     async def admin_show_approval_list(self, ctx):
         N = len(self.memes_awaiting_approval)
         response = f'There are ({N}) memes awaiting approval.'
@@ -165,10 +164,21 @@ class MemesInterface(commands.Cog):
         await ctx.send(response)
     
     @commands.command(name='clear-approval-list', aliases=['reject-all'])
+    @commands.has_permissions(administrator=True)
     async def admin_clear_approval_list(self, ctx):
         self.memes_awaiting_approval.clear()
 
         await ctx.send(f'Approval list cleared.')
+    
+    @commands.command(name='delete-meme')
+    @commands.has_permissions(administrator=True)
+    async def admin_delete_meme(self, ctx, *args):
+        for meme_name in args:
+            if meme_name in self.memes_list.keys():
+                self.memes_list.pop(meme_name)
+                await ctx.send(f'{ctx.author.mention} Deleted "{meme_name}"')
+
+        self.save_memes()
 
     @commands.command(name='admin-upload', hidden=True)
     @commands.has_permissions(administrator=True)
