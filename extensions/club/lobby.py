@@ -175,7 +175,7 @@ class LobbyInterface(commands.Cog, name='lobby'):
         else:
             await ctx.send(f'{ctx.author.mention} not in the lobby.')
     
-    @commands.command(name='shuffle')
+    @commands.command(name='shuffle', aliases=['shuggle'])
     async def list_shuffle(self, ctx, arg=None):
         '''
         Creates random tables of players who have readied up.

@@ -5,6 +5,10 @@ class BasicCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    @commands.command(name='dream-crasher')
+    async def meme_claire(self, ctx):
+        await ctx.send('https://cdn.discordapp.com/attachments/685471499691229269/717926706089820170/photo_2020-05-20_22-15-57.jpg')
+
     @commands.command(name='cogs')
     async def show_cogs(self, ctx):
         response = f''
