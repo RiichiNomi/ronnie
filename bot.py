@@ -6,6 +6,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 from extensions_startup import startup_extensions
+from extensions_after import after_startup_extensions
 
 #LOAD ENVIRONMENT VARIABLES
 load_dotenv('variables.env')
@@ -25,6 +26,8 @@ loaded = []
 @bot.event
 async def on_ready():
     print("Connected")
+    for extension in after_startup_extensions:
+        bot.load_extension(extension)
 
 #COMMANDS
 
