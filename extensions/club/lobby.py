@@ -327,11 +327,6 @@ class LobbyInterface(commands.Cog, name='lobby'):
             self.debug_mode = True
         else:
             self.debug_mode = False
-    
-    @commands.command(hidden=True)
-    async def test(self, ctx):
-        for role in ctx.author.roles:
-            await ctx.send(str(role))
 
             
 def setup(bot):
