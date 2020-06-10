@@ -72,6 +72,7 @@ class MusicPlayer(commands.Cog):
     async def display_sound_list(self, ctx):
         soundlist = os.listdir(sounds_folder)
         response = f'There are currently ({len(soundlist)}) available soundbites:\n\n'
+        soundlist.sort()
         for sound in soundlist:
             sound = sound.replace('.mp3', '')
             response += f'{sound} | '
