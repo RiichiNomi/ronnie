@@ -121,6 +121,7 @@ class Lobby():
     
     def display(self, member):
             return f'{member.display_name}'
+
                 
 class LobbyInterface(commands.Cog, name='lobby'):
     def __init__(self, bot):
