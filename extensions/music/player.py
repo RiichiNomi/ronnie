@@ -1,5 +1,6 @@
 from discord.ext import commands
 import discord
+import os
 
 startup_channel = "General"
 sounds_folder = 'extensions/music/sounds/'
@@ -66,8 +67,20 @@ class MusicPlayer(commands.Cog):
             await ctx.send(f'{ctx.author.mention} Stopped.')
         else:
             await ctx.send(f'{ctx.author.mention} No soundbite currently playing.')
+    
+    @commands.command(name='sound-list', aliases=['soundlist'])
+    async def display_sound_list(self, ctx):
+        soundlist = os.listdir(sounds_folder)
+        response = f'There are currently ({len(soundlist)}) available soundbites:\n\n'
+        for sound in soundlist:
+            sound = sound.replace('.mp3', '')
+            response += f'{sound} | '
         
-
+        response += f'\n\nTo make the bot connect to a voice channel, type !connect <voice-channel-name>\n'
+        response += f'To make the bot play a soundbite, type !play <soundbite-name>\n'
+        response += f'To make the bot stop playing, type !stop'
+        
+        await ctx.send(response)
 
 def setup(bot):
     bot.add_cog(MusicPlayer(bot))
