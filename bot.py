@@ -5,9 +5,6 @@ import json
 
 from discord.ext import commands
 
-from extensions_startup import startup_extensions
-from extensions_after import after_startup_extensions
-
 import nacl
 
 with open('config.json', 'r') as f:
@@ -15,6 +12,9 @@ with open('config.json', 'r') as f:
 
 PREFIXES = config['command_prefixes']
 TOKEN = config['bot_token']
+
+STARTUP_EXTENSIONS = config['startup_extensions']
+AFTER_STARTUP_EXTENSIONS = config['after_startup_extensions']
 
 #INSTANTIATE BOT
 bot = commands.Bot(command_prefix=PREFIXES)
@@ -28,7 +28,7 @@ loaded = []
 @bot.event
 async def on_ready():
     print("Connected")
-    for extension in after_startup_extensions:
+    for extension in AFTER_STARTUP_EXTENSIONS:
         bot.load_extension(extension)
 
 #COMMANDS
@@ -93,7 +93,7 @@ async def reload_extension(ctx, extension_name=None):
 #START THE BOT
 if __name__ == "__main__":
     bot.remove_command('help')
-    for extension in startup_extensions:
+    for extension in STARTUP_EXTENSIONS:
         bot.load_extension(extension)
         loaded.append(extension)
 
