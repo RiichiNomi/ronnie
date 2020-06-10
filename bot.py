@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 from extensions_startup import startup_extensions
 from extensions_after import after_startup_extensions
 
+import nacl
+
 #LOAD ENVIRONMENT VARIABLES
 load_dotenv('variables.env')
 

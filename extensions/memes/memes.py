@@ -4,7 +4,7 @@ import json
 import random
 
 link_file = 'extensions/memes/links.json'
-meme_approval_channel = 717996574893932625
+meme_approval_channel = 718225883403386941
 
 class MemesInterface(commands.Cog):
     def __init__(self, bot):
@@ -48,7 +48,10 @@ class MemesInterface(commands.Cog):
     async def user_get_meme_list(self, ctx):
         response = f'{ctx.author.mention} Here are the available memes: \n\n'
 
-        for meme_name in self.memes_list.keys():
+        names = list(self.memes_list.keys())
+        names.sort()
+
+        for meme_name in names:
             response += f'{meme_name} | '
         
         response += f'\n\nTo select a meme, type !meme <meme-name>\nTo select a random meme, type !meme'
@@ -170,7 +173,7 @@ class MemesInterface(commands.Cog):
 
         await ctx.send(f'Approval list cleared.')
     
-    @commands.command(name='delete-meme')
+    @commands.command(name='delete-meme', aliases=['remove-meme'])
     @commands.has_permissions(administrator=True)
     async def admin_delete_meme(self, ctx, *args):
         for meme_name in args:
@@ -180,7 +183,7 @@ class MemesInterface(commands.Cog):
 
         self.save_memes()
 
-    @commands.command(name='admin-upload', hidden=True)
+    @commands.command(name='upload-meme', aliases=['admin-upload', 'admin-upload-meme'], hidden=True)
     @commands.has_permissions(administrator=True)
     async def admin_upload_meme(self, ctx, meme_name=None, meme_link=None):
         if meme_name == None or meme_link == None:
