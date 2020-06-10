@@ -1,23 +1,23 @@
 # bot.py
 import os
 import time
+import json
 
 from discord.ext import commands
-from dotenv import load_dotenv
 
 from extensions_startup import startup_extensions
 from extensions_after import after_startup_extensions
 
 import nacl
 
-#LOAD ENVIRONMENT VARIABLES
-load_dotenv('variables.env')
+with open('config.json', 'r') as f:
+    config = json.load(f)
 
-PREFIX = os.environ.get('COMMAND_PREFIX')
-TOKEN = os.environ.get('BOT_TOKEN')
+PREFIXES = config['command_prefixes']
+TOKEN = config['bot_token']
 
 #INSTANTIATE BOT
-bot = commands.Bot(command_prefix=PREFIX)
+bot = commands.Bot(command_prefix=PREFIXES)
 
 #LIST TRACKING LOADED EXTENSIONS
 
