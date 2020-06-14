@@ -30,6 +30,9 @@ class MemesInterface(commands.Cog):
     
     @commands.command(name='meme', aliases=['memes'])
     async def user_get_meme(self, ctx, meme_name=None):
+        if ctx.prefix != 'd/':
+            return
+
         if meme_name == None:
             meme_name = random.choice(list(self.memes_list.keys()))
             meme_link = self.memes_list[meme_name]
@@ -63,6 +66,8 @@ class MemesInterface(commands.Cog):
         '''
         Submits a meme to be approved by the mods.
         '''
+
+
         if meme_name == None or meme_link == None:
             response = f'{ctx.author.mention} Command format: !submit <name> <link>'
             await ctx.send(response)
