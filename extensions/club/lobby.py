@@ -163,6 +163,7 @@ class LobbyInterface(commands.Cog, name='lobby'):
             await ctx.send(f'{ctx.author.mention} marked as ready! (Ready: {self.lobby.numReady})')
         else:
             self.lobby.add(ctx.author)
+            self.lobby.set_ready(ctx.author)
             await ctx.send(f'{ctx.author.mention} marked as ready! (Ready: {self.lobby.numReady})')
         
     @commands.command(name='unready')
