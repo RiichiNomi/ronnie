@@ -162,8 +162,9 @@ class LobbyInterface(commands.Cog, name='lobby'):
 
             await ctx.send(f'{ctx.author.mention} marked as ready! (Ready: {self.lobby.numReady})')
         else:
-            await ctx.send(f'{ctx.author.mention} not in the lobby.')
-
+            self.lobby.add(ctx.author)
+            await ctx.send(f'{ctx.author.mention} marked as ready! (Ready: {self.lobby.numReady})')
+        
     @commands.command(name='unready')
     async def member_set_status_not_ready(self, ctx):
         '''
