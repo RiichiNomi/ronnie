@@ -8,38 +8,55 @@ sounds_folder = 'extensions/music/sounds/'
 class MusicPlayer(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.vclient = None
+
+    @commands.command()
+    async def display_vclients(self, ctx):
+        await ctx.send(f'{self.bot.voice_clients}')
     
     @commands.command(name='voice-connect', aliases=['connect'])
     async def vc_connect(self, ctx, channelName='General'):
-        if channelName == None:
-            await ctx.send(f'{ctx.author.mention} No voice channel selected.')
-            return 
+        vclient = self.bot.voice_clients[0] if self.bot.voice_clients else None
+        
+        if vclient:
+            await ctx.send(f'{ctx.author.mention} Bot already connected to voice channel.')
+            return
+        
+        channel = [vc for vc in ctx.guild.voice_channels if vc.name == channelName][0] if ctx.guild.voice_channels else None
 
-        channel = None
-
-        for vc in ctx.guild.voice_channels:
-            if channelName == vc.name:
-                channel = vc
+        print(channel)
 
         if channel == None:
             await ctx.send(f'{ctx.author.mention} Voice channel "{channelName}" not found.')
             return
 
         try:
-            self.vclient = await channel.connect()
+            await channel.connect()
+            await ctx.send(f'{ctx.author.mention} Bot is connected to voice channel "{channelName}".')
         except Exception as e:
             print(e)
-            
-        await ctx.send(f'{ctx.author.mention} Bot is connected to voice channel "{channelName}".')
+            await ctx.send(f'ERROR: Unable to connect to voice channel. See log output.')
 
     @commands.command(name='voice-disconnect', aliases=['disconnect'])
     async def vc_disconnect(self, ctx):
-        await self.vclient.disconnect()
+        vclient = self.bot.voice_clients[0] if self.bot.voice_clients else None
+
+        if not vclient:
+            await ctx.send(f'{ctx.author.mention} Bot not connected to any voice channel.')
+            return
+
+        try:
+            await vclient.disconnect()
+            await ctx.send(f'{ctx.author.mention} Bot disconnected from voice channel.')
+        except Exception as e:
+            print(e)
+            await ctx.send(f'ERROR: Unable to disconnect from voice channel. See log output.')
+
     
     @commands.command(name='play')
     async def play(self, ctx, songName=None):
-        if not self.vclient or not self.vclient.is_connected():
+        vclient = self.bot.voice_clients[0] if self.bot.voice_clients else None
+
+        if not vclient or not vclient.is_connected():
             await ctx.send(f'{ctx.author.mention} Bot is not in any voice channel.')
             return
         
@@ -50,20 +67,22 @@ class MusicPlayer(commands.Cog):
         try:
             source = discord.FFmpegPCMAudio(sounds_folder+f'{songName}.mp3')
 
-            if not self.vclient.is_playing():
-                self.vclient.play(source, after=None)
+            if not vclient.is_playing():
+                vclient.play(source, after=None)
         except Exception as e:
             print(e)
 
 
     @commands.command(name='stop')
     async def stop(self, ctx):
-        if not self.vclient or not self.vclient.is_connected():
+        vclient = self.bot.voice_clients[0] if self.bot.voice_clients else None
+
+        if not vclient or not vclient.is_connected():
             await ctx.send(f'{ctx.author.mention} Bot is not connected to any voice channel.')
             return
         
-        if self.vclient.is_playing():
-            self.vclient.stop()
+        if vclient.is_playing():
+            vclient.stop()
             await ctx.send(f'{ctx.author.mention} Stopped.')
         else:
             await ctx.send(f'{ctx.author.mention} No soundbite currently playing.')
