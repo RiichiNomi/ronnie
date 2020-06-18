@@ -1,5 +1,7 @@
 #list of emojis to  be displayed for orphans of the week/month
-emojis = {
-    'orphanOfTheWeek':':star2:',
-    'orphanOfTheMonth':':medal:'
+role_emojis = {
+    'ORPHAN OF THE WEEK':':trophy:',
+    'ORPHANS OF THE MONTH':':rosette:',
+    'Club Yakuman': ':cherry_blossom:',
+    'Orphanage Schoolmasters': ':book:'
 }

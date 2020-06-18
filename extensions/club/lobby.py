@@ -3,6 +3,7 @@ import sqlite3
 import random
 from discord.ext import commands
 from dotenv import load_dotenv
+from extensions.club.emojis import role_emojis
 
 class Lobby():
     def __init__(self):
@@ -120,7 +121,12 @@ class Lobby():
             self.numReady -= 1
     
     def display(self, member):
-            return f'{member.display_name}'
+        name = f'{member.display_name} '
+        for role in member.roles:
+            if role.name in role_emojis:
+                name += f'{role_emojis[role.name]}'
+        
+        return name
 
                 
 class LobbyInterface(commands.Cog, name='lobby'):
@@ -208,7 +214,8 @@ class LobbyInterface(commands.Cog, name='lobby'):
             response += '==================\n'
             
             for player in leftover:
-                response += f'{player.display_name}\n'
+                name = self.lobby.display(player)
+                response += f'{name}\n'
             
             await ctx.send(response)
     
