@@ -158,7 +158,7 @@ class LobbyInterface(commands.Cog, name='lobby'):
         else:
             await ctx.send(f'{ctx.author.mention} not in the lobby.')
 
-    @commands.command(name='ready')
+    @commands.command(name='ready', aliases='repaldy')
     async def member_set_status_ready(self, ctx):
         '''
         Set status as ready. 
