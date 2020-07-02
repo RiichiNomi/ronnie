@@ -4,7 +4,6 @@ import random
 from discord.ext import commands
 from dotenv import load_dotenv
 from extensions.club.emojis import role_emojis
-from extensions.club.reports.reporting import GameReport
 
 class Lobby():
     def __init__(self):
