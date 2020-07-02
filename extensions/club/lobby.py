@@ -4,6 +4,7 @@ import random
 from discord.ext import commands
 from dotenv import load_dotenv
 from extensions.club.emojis import role_emojis
+from extensions.club.reports.reporting import GameReport
 
 class Lobby():
     def __init__(self):
@@ -16,6 +17,8 @@ class Lobby():
         self.players = []
         self.ready = []
         self.tables = []
+
+        self.reports = []
 
     def clear(self):
         self.size = 0
@@ -64,7 +67,7 @@ class Lobby():
     
     def shuffle(self, table_size):
         n = 0
-        table_players = []
+        tablePlayers = []
         while (self.numReady > 0):
             p = random.choice(self.ready)
 
@@ -72,17 +75,23 @@ class Lobby():
             self.numReady -= 1
             self.numInGame += 1
 
-            table_players.append(p)
+            tablePlayers.append(p)
 
             n += 1
             if (n == table_size):
-                self.tables.append(table_players)
+                gameReport = GameReport()
+                gameReport.players = tablePlayers
+
+                self.tables.append(tablePlayers)
                 self.numTables += 1
+
+                self.reports.append(gameReport)
+
                 n = 0
                 table_players = []
         
         #returns list of leftover players
-        for player in table_players:
+        for player in tablePlayers:
             self.ready.append(player)
             self.numReady += 1
             self.numInGame -= 1
@@ -127,13 +136,27 @@ class Lobby():
                 name += f'{role_emojis[role.name]}'
         
         return name
-
                 
 class LobbyInterface(commands.Cog, name='lobby'):
     def __init__(self, bot):
         self.bot = bot
         self.lobby = Lobby()
         self.debug_mode = False
+
+    @commands.command(name='reports-list', aliases=['reportslist', 'reportlist', 'report-list', 'reports'])
+    async def display_game_reports(self, ctx):
+        response = f'There are currently {len(self.lobby.reports)} games waiting to be logged.\n'
+
+        n = 1
+        for report in self.lobby.reports:
+            response += f'{n}. '
+            for player in report.players:
+                response += f'{player.mention} '
+            
+            response += f'\n'
+            n += 1
+        
+        await ctx.send(response)
 
     @commands.command(name='join')
     async def member_join_list(self, ctx):
@@ -158,7 +181,7 @@ class LobbyInterface(commands.Cog, name='lobby'):
         else:
             await ctx.send(f'{ctx.author.mention} not in the lobby.')
 
-    @commands.command(name='ready', aliases=['repaldy'])
+    @commands.command(name='ready', aliases=['repaldy', 'ydaer'])
     async def member_set_status_ready(self, ctx):
         '''
         Set status as ready. 

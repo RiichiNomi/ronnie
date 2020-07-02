@@ -53,7 +53,7 @@ class MusicPlayer(commands.Cog):
 
     
     @commands.command(name='play')
-    async def play(self, ctx, songName=None):
+    async def play(self, ctx, songName=None, volume=1.0):
         vclient = self.bot.voice_clients[0] if self.bot.voice_clients else None
 
         if not vclient or not vclient.is_connected():
@@ -65,13 +65,15 @@ class MusicPlayer(commands.Cog):
             return
 
         try:
+            volume = float(volume)
             source = discord.FFmpegPCMAudio(sounds_folder+f'{songName}.mp3')
+            transformedSource = discord.PCMVolumeTransformer(source, volume)
 
             if not vclient.is_playing():
-                vclient.play(source, after=None)
+                vclient.play(transformedSource, after=None)
         except Exception as e:
             print(e)
-
+            await ctx.send(e)
 
     @commands.command(name='stop')
     async def stop(self, ctx):
@@ -86,6 +88,36 @@ class MusicPlayer(commands.Cog):
             await ctx.send(f'{ctx.author.mention} Stopped.')
         else:
             await ctx.send(f'{ctx.author.mention} No soundbite currently playing.')
+    
+    @commands.command(name='pause')
+    async def pause(self, ctx):
+        vclient = self.bot.voice_clients[0] if self.bot.voice_clients else None
+
+        if not vclient or not vclient.is_connected():
+            await ctx.send(f'{ctx.author.mention} Bot is not connected to any voice channel.')
+            return
+        
+        if vclient.is_playing():
+            vclient.pause()
+            await ctx.send(f'{ctx.author.mention} Paused.')
+        else:
+            await ctx.send(f'{ctx.author.mention} No soundbite currently playing.')
+    
+    @commands.command(name='resume')
+    async def resume(self, ctx):
+        vclient = self.bot.voice_clients[0] if self.bot.voice_clients else None
+
+        if not vclient or not vclient.is_connected():
+            await ctx.send(f'{ctx.author.mention} Bot is not connected to any voice channel.')
+            return
+        
+        if vclient.is_paused():
+            vclient.resume()
+            await ctx.send(f'{ctx.author.mention} Resumed.')
+        elif vclient.is_playing:
+            await ctx.send(f'{ctx.author.mention} Already playing.')
+        else:
+            await ctx.send(f'{ctx.author.mention} No soundbite loaded')
     
     @commands.command(name='sound-list', aliases=['soundlist'])
     async def display_sound_list(self, ctx):
