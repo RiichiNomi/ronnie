@@ -21,16 +21,15 @@ with open('extensions-on-startup', 'r') as f:
     EXTENSIONS_ON_STARTUP = f.readlines()
 
 with open('extensions-after-startup', 'r') as f:
-    EXTENSIONS_AFTER_STARTUP = f.readlines
+    EXTENSIONS_AFTER_STARTUP = f.readlines()
 
 #INSTANTIATE BOT
 bot = commands.Bot(command_prefix=PREFIXES)
 
 #EVENTS
-@bot.event()
-async def on_ready(ctx):
+@bot.event
+async def on_ready():
     print("Connected")
-    await ctx.send(general.StartupMessage)
     for extension in EXTENSIONS_AFTER_STARTUP:
         bot.load_extension(extension)
 
@@ -97,5 +96,5 @@ if __name__ == "__main__":
 
     for extension in EXTENSIONS_ON_STARTUP:
         bot.load_extension(extension)
-        
+
     bot.run(TOKEN)
