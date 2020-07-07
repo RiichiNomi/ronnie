@@ -17,8 +17,22 @@ with open('config.json', 'r') as f:
 PREFIXES = config['command_prefixes']
 TOKEN = config['bot_token']
 
+with open('extensions-on-startup', 'r') as f:
+    EXTENSIONS_ON_STARTUP = f.readlines()
+
+with open('extensions-after-startup', 'r') as f:
+    EXTENSIONS_AFTER_STARTUP = f.readlines
+
 #INSTANTIATE BOT
 bot = commands.Bot(command_prefix=PREFIXES)
+
+#EVENTS
+@bot.event()
+async def on_ready(ctx):
+    print("Connected")
+    await ctx.send(general.StartupMessage)
+    for extension in EXTENSIONS_AFTER_STARTUP:
+        bot.load_extension(extension)
 
 #COMMANDS
 @bot.command(name='ping')
@@ -80,4 +94,8 @@ async def reload_extension(ctx, extension_name=None):
 #START THE BOT
 if __name__ == "__main__":
     bot.remove_command('help')
+
+    for extension in EXTENSIONS_ON_STARTUP:
+        bot.load_extension(extension)
+        
     bot.run(TOKEN)

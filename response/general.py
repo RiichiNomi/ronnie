@@ -1,3 +1,4 @@
+StartupMessage = 'Booting up...'
 PingMessage = 'Ping'
 ShutdownMessage = 'Shutting down...'
 RestartMessage = 'Restarting...'
