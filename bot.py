@@ -18,10 +18,10 @@ PREFIXES = config['command_prefixes']
 TOKEN = config['bot_token']
 
 with open('extensions-on-startup', 'r') as f:
-    EXTENSIONS_ON_STARTUP = f.readlines()
+    EXTENSIONS_ON_STARTUP = f.read().splitlines()
 
 with open('extensions-after-startup', 'r') as f:
-    EXTENSIONS_AFTER_STARTUP = f.readlines()
+    EXTENSIONS_AFTER_STARTUP = f.read().splitlines()
 
 #INSTANTIATE BOT
 bot = commands.Bot(command_prefix=PREFIXES)
