@@ -219,7 +219,7 @@ class LobbyInterface(commands.Cog, name='lobby'):
             response += f"\n {self.lobby.size} {self.lobby.numPlayers} {self.lobby.numReady} {self.lobby.numInGame} {self.lobby.numTables}"
 
         if self.mostRecentListDisplayMessage:
-            await self.mostRecentListDisplayMessage.clear_reactions()
+            await self.mostRecentListDisplayMessage.delete()
 
         self.mostRecentListDisplayMessage = await ctx.send(response)
 
@@ -241,6 +241,10 @@ class LobbyInterface(commands.Cog, name='lobby'):
             self.lobby.add(ctx.author)
 
             await ctx.send(f'{ctx.author.mention} joined the lobby ({self.lobby.size})')
+        
+        if self.mostRecentListDisplayMessage:
+            response = self.lobby.list_display()
+            await self.mostRecentListDisplayMessage.edit(content=response)
     
     @commands.command(name='leave', aliases=['rme', 'removeme'])
     async def member_leave_list(self, ctx):
@@ -252,6 +256,10 @@ class LobbyInterface(commands.Cog, name='lobby'):
             await ctx.send(f'{ctx.author.mention} left the lobby. ({self.lobby.size})')
         else:
             await ctx.send(f'{ctx.author.mention} not in the lobby.')
+        
+        if self.mostRecentListDisplayMessage:
+            response = self.lobby.list_display()
+            await self.mostRecentListDisplayMessage.edit(content=response)
 
     @commands.command(name='ready', aliases=['repaldy', 'ydaer'])
     async def member_set_status_ready(self, ctx):
@@ -267,6 +275,10 @@ class LobbyInterface(commands.Cog, name='lobby'):
             self.lobby.set_ready(ctx.author)
             await ctx.send(f'{ctx.author.mention} marked as ready! (Ready: {self.lobby.numReady})')
         
+        if self.mostRecentListDisplayMessage:
+            response = self.lobby.list_display()
+            await self.mostRecentListDisplayMessage.edit(content=response)
+        
     @commands.command(name='unready')
     async def member_set_status_not_ready(self, ctx):
         '''
@@ -278,6 +290,10 @@ class LobbyInterface(commands.Cog, name='lobby'):
             await ctx.send(f'{ctx.author.mention} marked as not ready! (Ready: {self.lobby.numReady})')
         else:
             await ctx.send(f'{ctx.author.mention} not in the lobby.')
+        
+        if self.mostRecentListDisplayMessage:
+            response = self.lobby.list_display()
+            await self.mostRecentListDisplayMessage.edit(content=response)
     
     @commands.command(name='shuffle', aliases=['shuggle'])
     async def list_shuffle(self, ctx, arg=None):
@@ -333,6 +349,10 @@ class LobbyInterface(commands.Cog, name='lobby'):
                 await ctx.send(response)
         else:
             await ctx.send(f'{ctx.author.mention} not in the lobby.')
+        
+        if self.mostRecentListDisplayMessage:
+            response = self.lobby.list_display()
+            await self.mostRecentListDisplayMessage.edit(content=response)
 
     @commands.command(name='remove')
     async def member_remove_other(self, ctx):
@@ -369,12 +389,20 @@ class LobbyInterface(commands.Cog, name='lobby'):
             response += 'not in the lobby'
 
             await ctx.send(response)
+        
+        if self.mostRecentListDisplayMessage:
+            response = self.lobby.list_display()
+            await self.mostRecentListDisplayMessage.edit(content=response)
 
     @commands.command(name='clearlist', hidden=True)
     async def clear_list(self, ctx):
         self.lobby.clear()
 
         await ctx.send(f'List cleared.')
+
+        if self.mostRecentListDisplayMessage:
+            response = self.lobby.list_display()
+            await self.mostRecentListDisplayMessage.edit(content=response)
 
     @commands.command(name='debug', hidden=True)
     async def set_debug_mode(self, ctx, arg):
