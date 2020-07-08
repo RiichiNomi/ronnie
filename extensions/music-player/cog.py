@@ -3,7 +3,7 @@ import discord
 import os
 
 startup_channel = "General"
-sounds_folder = 'extensions/music/sounds/'
+sounds_folder = 'extensions/music-player/sounds/'
 
 class MusicPlayer(commands.Cog):
     def __init__(self, bot):
