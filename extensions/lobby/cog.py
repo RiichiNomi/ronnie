@@ -328,6 +328,10 @@ class LobbyInterface(commands.Cog, name='lobby'):
                 response += f'{name}\n'
             
             await ctx.send(response)
+        
+        if self.mostRecentListDisplayMessage:
+            response = self.lobby.list_display()
+            await self.mostRecentListDisplayMessage.edit(content=response)
     
     @commands.command(name='tablegg', aliases=['gg'])
     async def table_gg(self, ctx):
