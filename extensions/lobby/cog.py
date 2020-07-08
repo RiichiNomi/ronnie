@@ -131,7 +131,8 @@ class Lobby():
         return name
     
     def list_display(self):
-        response = f'''There are currently {self.size} player(s) in the lobby:\n'''
+        response = f"\U00002B06 - join \U00002B07 - leave \U00002705 - ready \U0000274E - unready <:dab:697517218451423274> - shuffle\n\n"
+        response += f'''There are currently {self.size} player(s) in the lobby:\n'''
         response += f'{self.numPlayers} Waiting, {self.numReady} Ready, {self.numInGame} In Game\n'
         response += '='*25 + '\n'
 
@@ -162,8 +163,10 @@ class Lobby():
             name = self.display(player)
             response += f'{playerNum}. {name}\n'
 
-        response += "="*25 + '\n' + \
-                    f"Commands: !list, !join, !leave, !ready, !unready, !shuffle, !tablegg"
+        response += "="*25 + '\n'
+
+        
+        response += 'Press on the reaction to perform the specified action.'
         
         return response
                  
