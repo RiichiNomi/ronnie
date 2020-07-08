@@ -225,7 +225,7 @@ class LobbyInterface(commands.Cog, name='lobby'):
             try:
                 await self.mostRecentListDisplayMessage.delete()
             except Exception as e:
-                print(e)
+                await ctx.send(str(e))
 
         self.mostRecentListDisplayMessage = await ctx.send(response)
 
