@@ -229,6 +229,8 @@ class LobbyInterface(commands.Cog, name='lobby'):
 
         self.mostRecentListDisplayMessage = await ctx.send(response)
 
+        await ctx.message.delete()
+
         for emoji in button_emojis.keys():
             await self.mostRecentListDisplayMessage.add_reaction(emoji)
 
@@ -248,6 +250,8 @@ class LobbyInterface(commands.Cog, name='lobby'):
 
             await ctx.send(f'{ctx.author.mention} joined the lobby ({self.lobby.size})')
         
+        await ctx.message.delete()
+        
         if self.mostRecentListDisplayMessage:
             response = self.lobby.list_display()
             await self.mostRecentListDisplayMessage.edit(content=response)
@@ -262,6 +266,8 @@ class LobbyInterface(commands.Cog, name='lobby'):
             await ctx.send(f'{ctx.author.mention} left the lobby. ({self.lobby.size})')
         else:
             await ctx.send(f'{ctx.author.mention} not in the lobby.')
+        
+        await ctx.message.delete()
         
         if self.mostRecentListDisplayMessage:
             response = self.lobby.list_display()
@@ -281,6 +287,8 @@ class LobbyInterface(commands.Cog, name='lobby'):
             self.lobby.set_ready(ctx.author)
             await ctx.send(f'{ctx.author.mention} marked as ready! (Ready: {self.lobby.numReady})')
         
+        await ctx.message.delete()
+        
         if self.mostRecentListDisplayMessage:
             response = self.lobby.list_display()
             await self.mostRecentListDisplayMessage.edit(content=response)
@@ -296,6 +304,8 @@ class LobbyInterface(commands.Cog, name='lobby'):
             await ctx.send(f'{ctx.author.mention} marked as not ready! (Ready: {self.lobby.numReady})')
         else:
             await ctx.send(f'{ctx.author.mention} not in the lobby.')
+        
+        await ctx.message.delete()
         
         if self.mostRecentListDisplayMessage:
             response = self.lobby.list_display()
@@ -335,6 +345,8 @@ class LobbyInterface(commands.Cog, name='lobby'):
             
             await ctx.send(response)
         
+        await ctx.message.delete()
+        
         if self.mostRecentListDisplayMessage:
             response = self.lobby.list_display()
             await self.mostRecentListDisplayMessage.edit(content=response)
@@ -359,6 +371,8 @@ class LobbyInterface(commands.Cog, name='lobby'):
                 await ctx.send(response)
         else:
             await ctx.send(f'{ctx.author.mention} not in the lobby.')
+        
+        await ctx.message.delete()
         
         if self.mostRecentListDisplayMessage:
             response = self.lobby.list_display()
@@ -400,6 +414,8 @@ class LobbyInterface(commands.Cog, name='lobby'):
 
             await ctx.send(response)
         
+        await ctx.message.delete()
+        
         if self.mostRecentListDisplayMessage:
             response = self.lobby.list_display()
             await self.mostRecentListDisplayMessage.edit(content=response)
@@ -409,6 +425,8 @@ class LobbyInterface(commands.Cog, name='lobby'):
         self.lobby.clear()
 
         await ctx.send(f'List cleared.')
+    
+        await ctx.message.delete()
 
         if self.mostRecentListDisplayMessage:
             response = self.lobby.list_display()
