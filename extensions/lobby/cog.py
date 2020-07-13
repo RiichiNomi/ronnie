@@ -211,7 +211,7 @@ class LobbyInterface(commands.Cog, name='lobby'):
         await self.mostRecentListDisplayMessage.edit(content=response)
             
     
-    @commands.command(name='list')
+    @commands.command(name='list', description='Display the current status of the lobby')
     async def display_lobby_state(self, ctx):
         '''
         Display the current status of the lobby.
@@ -238,7 +238,7 @@ class LobbyInterface(commands.Cog, name='lobby'):
         # await ctx.send(f'{self.lobby.tables}')
 
 
-    @commands.command(name='join')
+    @commands.command(name='join', description='Join the lobby')
     async def member_join_list(self, ctx):
         '''
         Join the lobby. 
@@ -256,7 +256,7 @@ class LobbyInterface(commands.Cog, name='lobby'):
             response = self.lobby.list_display()
             await self.mostRecentListDisplayMessage.edit(content=response)
     
-    @commands.command(name='leave', aliases=['rme', 'removeme'])
+    @commands.command(name='leave', aliases=['rme', 'removeme'], description='Leave the lobby')
     async def member_leave_list(self, ctx):
         '''
         Leave the lobby.
@@ -273,7 +273,7 @@ class LobbyInterface(commands.Cog, name='lobby'):
             response = self.lobby.list_display()
             await self.mostRecentListDisplayMessage.edit(content=response)
 
-    @commands.command(name='ready', aliases=['repaldy', 'ydaer'])
+    @commands.command(name='ready', aliases=['repaldy', 'ydaer'], description='Set status as ready')
     async def member_set_status_ready(self, ctx):
         '''
         Set status as ready. 
@@ -293,7 +293,7 @@ class LobbyInterface(commands.Cog, name='lobby'):
             response = self.lobby.list_display()
             await self.mostRecentListDisplayMessage.edit(content=response)
         
-    @commands.command(name='unready')
+    @commands.command(name='unready', description='Set status as not ready')
     async def member_set_status_not_ready(self, ctx):
         '''
         Set status as not ready.
@@ -311,7 +311,7 @@ class LobbyInterface(commands.Cog, name='lobby'):
             response = self.lobby.list_display()
             await self.mostRecentListDisplayMessage.edit(content=response)
     
-    @commands.command(name='shuffle', aliases=['shuggle'])
+    @commands.command(name='shuffle', aliases=['shuggle'], description='Creates random tables of players who have readied up')
     async def list_shuffle(self, ctx, arg=None):
         '''
         Creates random tables of players who have readied up.
@@ -351,7 +351,7 @@ class LobbyInterface(commands.Cog, name='lobby'):
             response = self.lobby.list_display()
             await self.mostRecentListDisplayMessage.edit(content=response)
     
-    @commands.command(name='tablegg', aliases=['gg'])
+    @commands.command(name='tablegg', aliases=['gg'], description='Places all players in a table back in the lobby')
     async def table_gg(self, ctx):
         '''
         Places all players in a table back in the lobby.
@@ -378,7 +378,7 @@ class LobbyInterface(commands.Cog, name='lobby'):
             response = self.lobby.list_display()
             await self.mostRecentListDisplayMessage.edit(content=response)
 
-    @commands.command(name='remove')
+    @commands.command(name='remove', description='Removes a mentioned player in the lobby')
     async def member_remove_other(self, ctx):
         '''
         Removes a mentioned player in the lobby.
@@ -420,7 +420,7 @@ class LobbyInterface(commands.Cog, name='lobby'):
             response = self.lobby.list_display()
             await self.mostRecentListDisplayMessage.edit(content=response)
 
-    @commands.command(name='clearlist', hidden=True)
+    @commands.command(name='clearlist', hidden=True, description='Hidden command to clear the lobby')
     async def clear_list(self, ctx):
         self.lobby.clear()
 
@@ -432,7 +432,7 @@ class LobbyInterface(commands.Cog, name='lobby'):
             response = self.lobby.list_display()
             await self.mostRecentListDisplayMessage.edit(content=response)
 
-    @commands.command(name='debug', hidden=True)
+    @commands.command(name='debug', hidden=True, description='Hidden command to set debug mode')
     async def set_debug_mode(self, ctx, arg):
         if arg == 'on':
             self.debug_mode = True

@@ -13,7 +13,7 @@ class MusicPlayer(commands.Cog):
     async def display_vclients(self, ctx):
         await ctx.send(f'{self.bot.voice_clients}')
     
-    @commands.command(name='voice-connect', aliases=['connect'])
+    @commands.command(name='voice-connect', aliases=['connect'], description='Connects bot to voice channel')
     async def vc_connect(self, ctx, channelName='General'):
         vclient = self.bot.voice_clients[0] if self.bot.voice_clients else None
         
@@ -36,7 +36,7 @@ class MusicPlayer(commands.Cog):
             print(e)
             await ctx.send(f'ERROR: Unable to connect to voice channel. See log output.')
 
-    @commands.command(name='voice-disconnect', aliases=['disconnect'])
+    @commands.command(name='voice-disconnect', aliases=['disconnect'], description='Disconnects bot from voice channel')
     async def vc_disconnect(self, ctx):
         vclient = self.bot.voice_clients[0] if self.bot.voice_clients else None
 
@@ -52,7 +52,7 @@ class MusicPlayer(commands.Cog):
             await ctx.send(f'ERROR: Unable to disconnect from voice channel. See log output.')
 
     
-    @commands.command(name='play')
+    @commands.command(name='play', description='Play music in voice channel')
     async def play(self, ctx, songName=None, volume=1.0):
         vclient = self.bot.voice_clients[0] if self.bot.voice_clients else None
 
@@ -75,7 +75,7 @@ class MusicPlayer(commands.Cog):
             print(e)
             await ctx.send(e)
 
-    @commands.command(name='stop')
+    @commands.command(name='stop', description='Stop music in voice channel')
     async def stop(self, ctx):
         vclient = self.bot.voice_clients[0] if self.bot.voice_clients else None
 
@@ -89,7 +89,7 @@ class MusicPlayer(commands.Cog):
         else:
             await ctx.send(f'{ctx.author.mention} No soundbite currently playing.')
     
-    @commands.command(name='pause')
+    @commands.command(name='pause', description='Pause music in voice channel')
     async def pause(self, ctx):
         vclient = self.bot.voice_clients[0] if self.bot.voice_clients else None
 
@@ -103,7 +103,7 @@ class MusicPlayer(commands.Cog):
         else:
             await ctx.send(f'{ctx.author.mention} No soundbite currently playing.')
     
-    @commands.command(name='resume')
+    @commands.command(name='resume', description='Resume music in voice channel')
     async def resume(self, ctx):
         vclient = self.bot.voice_clients[0] if self.bot.voice_clients else None
 
@@ -119,7 +119,7 @@ class MusicPlayer(commands.Cog):
         else:
             await ctx.send(f'{ctx.author.mention} No soundbite loaded')
     
-    @commands.command(name='sound-list', aliases=['soundlist'])
+    @commands.command(name='sound-list', aliases=['soundlist'], description='List soundtracks avaliable to play')
     async def display_sound_list(self, ctx):
         soundlist = os.listdir(sounds_folder)
         response = f'There are currently ({len(soundlist)}) available soundbites:\n\n'
@@ -134,7 +134,7 @@ class MusicPlayer(commands.Cog):
         
         await ctx.send(response)
     
-    @commands.command(name='upload-mp3', aliases=['admin-upload-mp3'])
+    @commands.command(name='upload-mp3', aliases=['admin-upload-mp3'], description='Admin only command to upload mp3 soundtrack')
     @commands.has_permissions(administrator=True)
     async def admin_upload_mp3(self, ctx):
         if ctx.message.attachments:

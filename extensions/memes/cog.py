@@ -28,7 +28,7 @@ class MemesInterface(commands.Cog):
     
     #USER COMMANDS
     
-    @commands.command(name='meme', aliases=['memes'])
+    @commands.command(name='meme', aliases=['memes'], description='Retrieve a meme from the list of memes')
     async def user_get_meme(self, ctx, meme_name=None):
         if meme_name == None:
             meme_name = random.choice(list(self.memes_list.keys()))
@@ -44,7 +44,7 @@ class MemesInterface(commands.Cog):
 
         await ctx.send(f'Meme: "{meme_name}" \n{meme_link}')
     
-    @commands.command(name='meme-list', aliases=['memes-list', 'memelist', 'memeslist'])
+    @commands.command(name='meme-list', aliases=['memes-list', 'memelist', 'memeslist'], description='List all avaliable memes')
     async def user_get_meme_list(self, ctx):
         response = f'{ctx.author.mention} Here are the available memes: \n\n'
 
@@ -58,7 +58,7 @@ class MemesInterface(commands.Cog):
         
         await ctx.send(response)
     
-    @commands.command(name='submit-meme')
+    @commands.command(name='submit-meme', description='Submits a meme to be approved by the mods')
     async def user_upload_meme(self, ctx, meme_name=None, meme_link=None):
         '''
         Submits a meme to be approved by the mods.
@@ -91,7 +91,7 @@ class MemesInterface(commands.Cog):
 
     #ADMIN COMMANDS
 
-    @commands.command(name='approve')
+    @commands.command(name='approve', description='Admin only command to approve meme')
     @commands.has_permissions(administrator=True)
     async def admin_approve_meme(self, ctx, *args):
         if not args:
@@ -114,7 +114,7 @@ class MemesInterface(commands.Cog):
 
             await ctx.send(f'{ctx.author.mention} "{meme_name}" approved')
     
-    @commands.command(name='reject')
+    @commands.command(name='reject', description='Admin only command to reject meme')
     @commands.has_permissions(administrator=True)
     async def admin_reject_meme(self, ctx, *args):
         if not args:
@@ -130,7 +130,7 @@ class MemesInterface(commands.Cog):
 
             await ctx.send(f'{ctx.author.mention} "{meme_name}" rejected.')
     
-    @commands.command(name='approve-all')
+    @commands.command(name='approve-all', description='Admin only command to approve all memes')
     @commands.has_permissions(administrator=True)
     async def admin_approve_all(self, ctx):
         if not self.memes_awaiting_approval:
@@ -153,7 +153,7 @@ class MemesInterface(commands.Cog):
         await ctx.send(response)
     
     
-    @commands.command(name='approval-list')
+    @commands.command(name='approval-list', description='Admin only command to list all memes pending approval')
     @commands.has_permissions(administrator=True)
     async def admin_show_approval_list(self, ctx):
         N = len(self.memes_awaiting_approval)
@@ -168,14 +168,14 @@ class MemesInterface(commands.Cog):
 
         await ctx.send(response)
     
-    @commands.command(name='clear-approval-list', aliases=['reject-all'])
+    @commands.command(name='clear-approval-list', aliases=['reject-all'], description='Admin only command to reject all memes')
     @commands.has_permissions(administrator=True)
     async def admin_clear_approval_list(self, ctx):
         self.memes_awaiting_approval.clear()
 
         await ctx.send(f'Approval list cleared.')
     
-    @commands.command(name='delete-meme', aliases=['remove-meme'])
+    @commands.command(name='delete-meme', aliases=['remove-meme'], description='Admin only command to delete meme')
     @commands.has_permissions(administrator=True)
     async def admin_delete_meme(self, ctx, *args):
         for meme_name in args:
@@ -185,7 +185,7 @@ class MemesInterface(commands.Cog):
 
         self.save_memes()
 
-    @commands.command(name='upload-meme', aliases=['admin-upload', 'admin-upload-meme'], hidden=True)
+    @commands.command(name='upload-meme', aliases=['admin-upload', 'admin-upload-meme'], hidden=True, description='Admin only command to upload a meme')
     @commands.has_permissions(administrator=True)
     async def admin_upload_meme(self, ctx, meme_name=None, meme_link=None):
         if meme_name == None or meme_link == None:
