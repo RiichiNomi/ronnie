@@ -92,8 +92,6 @@ async def reload_extension(ctx, extension_name=None):
 
 #START THE BOT
 if __name__ == "__main__":
-    bot.remove_command('help')
-
     for extension in EXTENSIONS_ON_STARTUP:
         bot.load_extension(extension)
 
