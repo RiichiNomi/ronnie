@@ -21,14 +21,14 @@ EXTENSIONS_AFTER_STARTUP_FILE = os.environ.get('extensions_after_startup_file')
 #INITIATE LIST OF EXTENSIONS TO LOAD BEFORE/AFTER STARTUP
 try:
     with open(EXTENSIONS_ON_STARTUP_FILE, 'r') as f:
-        EXTENSIONS_ON_STARTUP = f.readlines()
+        EXTENSIONS_ON_STARTUP = f.read().split('\n')
 except FileNotFoundError:
     with open(EXTENSIONS_ON_STARTUP_FILE, 'w') as f:
         EXTENSIONS_ON_STARTUP = []
 
 try:
     with open(EXTENSIONS_AFTER_STARTUP_FILE, 'r') as f:
-        EXTENSIONS_AFTER_STARTUP = f.readlines()
+        EXTENSIONS_AFTER_STARTUP = f.read().split('\n')
 except FileNotFoundError:
     with open(EXTENSIONS_AFTER_STARTUP_FILE, 'w') as f:
         EXTENSIONS_AFTER_STARTUP = []
