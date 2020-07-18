@@ -1,27 +1,38 @@
 # bot.py
+import dotenv
 import os
-import time
-import json
+from os.path import join, dirname
 import subprocess
 
 from discord.ext import commands
 
 from response import general
 
-import nacl
-
 #LOAD BOT CONFIGURATION
-with open('config.json', 'r') as f:
-    config = json.load(f)
 
-PREFIXES = config['command_prefixes']
-TOKEN = config['bot_token']
+env_path = join(dirname(__file__), 'config.env')
+dotenv.load_dotenv('config.env')
 
-with open('extensions-on-startup', 'r') as f:
-    EXTENSIONS_ON_STARTUP = f.readlines()
+PREFIXES = os.environ.get('command_prefixes').split()
+TOKEN = os.environ.get('bot_token')
+EXTENSIONS_ON_STARTUP_FILE = os.environ.get('extensions_on_startup_file')
+EXTENSIONS_AFTER_STARTUP_FILE = os.environ.get('extensions_after_startup_file')
 
-with open('extensions-after-startup', 'r') as f:
-    EXTENSIONS_AFTER_STARTUP = f.readlines()
+#INITIATE LIST OF EXTENSIONS TO LOAD BEFORE/AFTER STARTUP
+try:
+    with open(EXTENSIONS_ON_STARTUP_FILE, 'r') as f:
+        EXTENSIONS_ON_STARTUP = f.readlines()
+except FileNotFoundError:
+    with open(EXTENSIONS_ON_STARTUP_FILE, 'w') as f:
+        EXTENSIONS_ON_STARTUP = []
+
+try:
+    with open(EXTENSIONS_AFTER_STARTUP_FILE, 'r') as f:
+        EXTENSIONS_AFTER_STARTUP = f.readlines()
+except FileNotFoundError:
+    with open(EXTENSIONS_AFTER_STARTUP_FILE, 'w') as f:
+        EXTENSIONS_AFTER_STARTUP = []
+
 
 #INSTANTIATE BOT
 bot = commands.Bot(command_prefix=PREFIXES)
@@ -92,8 +103,6 @@ async def reload_extension(ctx, extension_name=None):
 
 #START THE BOT
 if __name__ == "__main__":
-    bot.remove_command('help')
-
     for extension in EXTENSIONS_ON_STARTUP:
         bot.load_extension(extension)
 
