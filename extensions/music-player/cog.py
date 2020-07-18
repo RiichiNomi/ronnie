@@ -2,6 +2,8 @@ from discord.ext import commands
 import discord
 import os
 
+import nacl
+
 startup_channel = "General"
 sounds_folder = 'extensions/music-player/sounds/'
 
