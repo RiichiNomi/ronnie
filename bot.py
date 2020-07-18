@@ -45,11 +45,11 @@ async def on_ready():
         bot.load_extension(extension)
 
 #COMMANDS
-@bot.command(name='ping')
+@bot.command(name='ping', description='Healthcheck to see if the bot is running on the server')
 async def ping(ctx):
     await ctx.send(general.PingMessage)
 
-@bot.command(name='shutdown')
+@bot.command(name='shutdown', description='Disables the bot running on the server')
 async def shutdown(ctx):
     if not ctx.author.guild_permissions.administrator:
         await ctx.send(f'{ctx.author.mention}' + general.UserNoAdminPermissions)
@@ -58,7 +58,7 @@ async def shutdown(ctx):
     await ctx.send(general.ShutdownMessage)
     await bot.close()
 
-@bot.command(name='restart')
+@bot.command(name='restart', description='Restarts the bot running on the server')
 async def restart(ctx):
     if not ctx.author.guild_permissions.administrator:
         await ctx.send(f'{ctx.author.mention}' + general.UserNoAdminPermissions)
@@ -69,7 +69,7 @@ async def restart(ctx):
 
     subprocess.run('start.sh')
 
-@bot.command(name='load')
+@bot.command(name='load', description='Loads an extension to this discord bot')
 async def load_extension(ctx, extension_name): 
     if not ctx.author.guild_permissions.administrator:
         await ctx.send(f'{ctx.author.mention}' + general.UserNoAdminPermissions)
@@ -79,7 +79,7 @@ async def load_extension(ctx, extension_name):
 
     await ctx.send(general.ExtensionLoadedMessage + f' "{extension_name}"')
 
-@bot.command(name='unload')
+@bot.command(name='unload', description='Unloads an extention to this discord bot')
 async def unload_extension(ctx, extension_name):
     if not ctx.author.guild_permissions.administrator:
         await ctx.send(f'{ctx.author.mention}' + general.UserNoAdminPermissions)
@@ -89,7 +89,7 @@ async def unload_extension(ctx, extension_name):
 
     await ctx.send(general.ExtensionUnloadedMessage + f' "{extension_name}"')
 
-@bot.command(name='reload')
+@bot.command(name='reload', description='Reloads an extension to this discord bot')
 async def reload_extension(ctx, extension_name=None):
     if (extension_name != None):
         bot.reload_extension(extension_name)
