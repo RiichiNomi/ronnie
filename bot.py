@@ -50,7 +50,7 @@ async def restart(ctx):
     await ctx.send("Restarting...")
     await bot.close()
 
-    subprocess.run('start.sh')
+    subprocess.run('./start.sh')
 
 @bot.command(name='load', hidden=True)
 async def load_extension(ctx, extension_name): 
