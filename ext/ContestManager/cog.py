@@ -2,6 +2,7 @@ import asyncio
 import random
 
 from discord.ext import commands
+from discord import Embed
 
 from modules.pymjsoul import mjsoul
 from modules.pymjsoul.channel import MajsoulChannel
@@ -9,16 +10,16 @@ from modules.pymjsoul.client import ContestManagerClient
 from modules.pymjsoul.proto.combined import lq_dhs_pb2 as lq_dhs
 
 class ContestManagerInterface(commands.Cog):
-    PAUSE_COOLDOWN_DURATION = 5
+    """Tournament Lobby"""
     def __init__(self, bot):
         self.bot = bot 
+        self.cog_display_name = "Tournament Lobby"
+
         self.client = ContestManagerClient(lq_dhs)
+        self.contest = None
         
         self.main_channel = None
         self.list_message = None
-
-        self.pause_trackers = []
-        self.pause_tracker_lock = asyncio.Lock()
     
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
@@ -31,9 +32,81 @@ class ContestManagerInterface(commands.Cog):
 
         if str(reaction.emoji) == '\U0001F3B2':
             await self.shuffle(reaction.message.channel)
+    
+    @commands.command(name='rules')
+    async def display_tournament_rules(self, ctx):
+        '''
+        Displays the game rules.
+
+        Usage: `ms/rules`
+
+        Displays a summary of the game rules that the current tournament lobby implements.
+        '''
+        if not self.client.websocket or not self.client.websocket.open:
+                await ctx.send('Client not connected.')
+                return
+
+        embed = Embed(title=self.contest.contest_name, description='Ruleset Summary:')
+
+        embed.set_thumbnail(url='https://cdn.discordapp.com/attachments/740078597351538768/802301149427794020/ichihime-0.png')
+
+        res = await self.client.call('fetchContestGameRule')
+
+        rules = res.game_rule_setting
+
+        if rules.dora_count == 0:
+            embed.add_field(name='Red Fives', value=False)
+        else:
+            embed.add_field(name='Red Fives', value=rules.dora_count)
+
+        if rules.thinking_type == 1:
+            embed.add_field(name='Thinking Time', value='3+5s')
+        elif rules.thinking_type == 2:
+            embed.add_field(name='Thinking Time', value='5+10s')
+        elif rules.thinking_type == 3:
+            embed.add_field(name='Thinking Time', value='5+20s')
+        elif rules.thinking_type == 4:
+            embed.add_field(name='Thinking Time', value='60+0s')
+
+        if res.game_rule_setting.use_detail_rule:
+            rules = res.game_rule_setting.detail_rule_v2.game_rule
+            #Starting Points
+            embed.add_field(name='Starting Points', value=rules.init_point)
+            #Uma Calculation
+            shunweima_1 = (int)(-1*(rules.shunweima_2 + rules.shunweima_3 + rules.shunweima_4))
+            embed.add_field(name='Uma', value=f'{shunweima_1}/{rules.shunweima_2}/{rules.shunweima_3}/{rules.shunweima_4}')
+            #Agari Yame
+            embed.add_field(name='Agari Yame', value=rules.have_helezhongju)
+            #Busting On
+            embed.add_field(name='Busting On', value=rules.can_jifei)
+            #Nagashi Mangan
+            embed.add_field(name='Nagashi Mangan', value=rules.have_liujumanguan)
+            #Kiriage Mangan
+            embed.add_field(name='Kiriage Mangan', value=rules.have_qieshangmanguan)
+            #Four Winds Abort
+            embed.add_field(name='Four Wind Abort', value=rules.have_sifenglianda)
+            #Four Kan Abort
+            embed.add_field(name='Four Kan Abort', value=rules.have_sigangsanle)
+            #Four Riichi Abort
+            embed.add_field(name='Four Riichi Abort', value=rules.have_sijializhi)
+            #Nine Terminals Honors Abort
+            embed.add_field(name='Nine Terminals Honors Abort', value=rules.have_jiuzhongjiupai)
+            #Triple Ron Abort
+            embed.add_field(name='Triple Ron Abort', value=rules.have_sanjiahele)
+            #Head Bump
+            embed.add_field(name='Head Bump', value=rules.have_toutiao)
+            #Multiple Yakuman
+            embed.add_field(name='Multiple Yakuman', value=not rules.disable_multi_yukaman)
         
-    @commands.command(name='connect')
+        await ctx.send(embed=embed)
+
+        
+    @commands.command(name='connect', hidden=True)
     async def dhs_connect(self, ctx):
+        '''Test Doc
+        
+        Second Line
+        '''
         async with ctx.channel.typing():
             servers = await mjsoul.get_contest_management_servers()
             
@@ -48,8 +121,7 @@ class ContestManagerInterface(commands.Cog):
             
             await ctx.send(f'Connected to {servers[0]}')
 
-
-    @commands.command(name='login')
+    @commands.command(name='login', hidden=True)
     async def dhs_login(self, ctx):
         async with ctx.channel.typing():
             if not self.client.websocket or not self.client.websocket.open:
@@ -64,24 +136,31 @@ class ContestManagerInterface(commands.Cog):
             
             await ctx.send('Logged in to contest manager.')
 
-        
         asyncio.create_task(self.notify_listener())
     
     @commands.command(name='pause')
-    async def dhs_pause(self, ctx):
+    async def dhs_pause(self, ctx, nickname:str = None):
+        '''Pauses the game.
+        
+        Usage: `ms/pause <majsoul-user>`
+
+        Pauses an ongoing game for `<majsoul-user>`. If the command is invoked without any arguments, the bot will use the Majsoul name registered to the Discord user who invoked the command.
+        '''
+        
         async with ctx.channel.typing():
             if not self.client.websocket or not self.client.websocket.open:
                 await ctx.send('Client not connected.')
                 return
 
-            PlayerNicknamesCog = self.bot.get_cog('PlayerNicknames')
-            p = PlayerNicknamesCog.players
+            if nickname is None:
+                PlayerNicknamesCog = self.bot.get_cog('PlayerNicknames')
+                p = PlayerNicknamesCog.players
 
-            if ctx.author.id not in p['discord_id'].values or p['mahjsoul_name'][ctx.author.id] != None:
-                nickname = p['mahjsoul_name'][ctx.author.id]
-            else:
-                await ctx.send(f'No Mahjsoul name registered for {ctx.author.mention}. Type ms/mahjsoul-name <your-mahjsoul-name> to register.')
-                return
+                if ctx.author.id not in p['discord_id'].values or p['mahjsoul_name'][ctx.author.id] != None:
+                    nickname = p['mahjsoul_name'][ctx.author.id]
+                else:
+                    await ctx.send(f'No Mahjsoul name registered for {ctx.author.mention}. Type ms/mahjsoul-name <your-mahjsoul-name> to register.')
+                    return
             
             game_uuid = await self.client.get_game_id(nickname)
 
@@ -98,20 +177,28 @@ class ContestManagerInterface(commands.Cog):
             await ctx.send(f'Game paused for {nickname}')
     
     @commands.command(name='unpause', aliases=['resume'])
-    async def dhs_unpause(self, ctx):
+    async def dhs_unpause(self, ctx, nickname:str = None):
+        '''Resumes the game.
+
+        Usage: `ms/unpause <majsoul-user>`
+
+        Resumes an ongoing game for `<majsoul-user>`. If the command is invoked without any arguments, the bot will use the Majsoul name registered to the Discord user who invoked the command.
+        '''
+
         async with ctx.channel.typing():
             if not self.client.websocket or not self.client.websocket.open:
                 await ctx.send('Client not connected.')
                 return
 
-            PlayerNicknamesCog = self.bot.get_cog('PlayerNicknames')
-            p = PlayerNicknamesCog.players
+            if nickname is None:
+                PlayerNicknamesCog = self.bot.get_cog('PlayerNicknames')
+                p = PlayerNicknamesCog.players
 
-            if ctx.author.id not in p['discord_id'].values or p['mahjsoul_name'][ctx.author.id] != None:
-                nickname = p['mahjsoul_name'][ctx.author.id]
-            else:
-                await ctx.send(f'No Mahjsoul name registered for {ctx.author.mention}. Type ms/mahjsoul-name <your-mahjsoul-name> to register.')
-                return
+                if ctx.author.id not in p['discord_id'].values or p['mahjsoul_name'][ctx.author.id] != None:
+                    nickname = p['mahjsoul_name'][ctx.author.id]
+                else:
+                    await ctx.send(f'No Mahjsoul name registered for {ctx.author.mention}. Type ms/mahjsoul-name <your-mahjsoul-name> to register.')
+                    return
             
             game_uuid = await self.client.get_game_id(nickname)
 
@@ -128,15 +215,17 @@ class ContestManagerInterface(commands.Cog):
             await ctx.send(f'Game unpaused for {nickname}')
     
     
-    @commands.command(name='manage')
+    @commands.command(name='manage', hidden=True)
     async def dhs_manage_contest(self, ctx, lobbyID:int):
+
         async with ctx.channel.typing():
             if not self.client.websocket or not self.client.websocket.open:
                 await ctx.send('Client not connected.')
                 return
             
             try:
-                await self.client.call('manageContest', unique_id=lobbyID)
+                res = await self.client.call('manageContest', unique_id=lobbyID)
+                self.contest = res.contest
             except Exception as e:
                 print(e)
                 await ctx.send(f'Unable to manage {lobbyID}')
@@ -147,6 +236,13 @@ class ContestManagerInterface(commands.Cog):
 
     @commands.command(name='list')
     async def dhs_show_active_players(self, ctx):
+        '''Displays the lobby.
+        
+        Usage: `ms/list`
+
+        Displays the names of all players who are currently queued up in the Majsoul tournament lobby.
+        '''
+
         self.main_channel = ctx.channel
         async with ctx.channel.typing():
             if not self.client.websocket or not self.client.websocket.open:
@@ -185,17 +281,15 @@ class ContestManagerInterface(commands.Cog):
     
     @commands.command(name='shuffle')
     async def dhs_create_random_games(self, ctx):
+        '''Starts randomly matched games.
+        
+        Usage: `ms/shuffle`
+
+        Selects four random players who are queued up in the tournament lobby and starts a game for them. Does this repeatedly until there are no longer enough players for a full table.
+        '''
+
         async with ctx.channel.typing():
             await self.shuffle(ctx.channel)
-    
-    @commands.command(name='test')
-    async def test_record_game(self, ctx):
-        players = [(1, 'AAAA'), (2, 'BBBB'), (3, 'CCCC'), (4, 'DDDD')]
-        points = [47200, 46500, 13800, 12500]
-
-        TournamentScoreTracker = self.bot.get_cog('TournamentScoreTracker')
-
-        await TournamentScoreTracker.record_game(players, points)
 
     async def notify_listener(self):
         while True:

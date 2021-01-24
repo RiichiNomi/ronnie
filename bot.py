@@ -78,4 +78,5 @@ async def reload_extension(ctx, extension_name=None):
 
 #START THE BOT
 if __name__ == "__main__":
+    bot.remove_command('help')
     bot.run(TOKEN)

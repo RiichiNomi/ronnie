@@ -1,0 +1,10 @@
+{
+    "title": "Ichihime Bot Commands",
+    "description": "A list of basic bot features.\n Type `ms/<command>` to use.\n Type `ms/help <command-name>` to learn how to use a command.",
+    "color": 5633458,
+    "thumbnail": {
+    "url": "https://cdn.discordapp.com/attachments/740078597351538768/802301149427794020/ichihime-0.png"
+    },
+    "fields": [
+    ]
+}
