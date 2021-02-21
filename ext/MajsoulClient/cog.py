@@ -1,3 +1,6 @@
+import asyncio
+import os
+
 from discord.ext import commands
 
 from modules.pymjsoul import mjsoul
@@ -9,8 +12,18 @@ class MajsoulClientInterface(commands.Cog):
     "Majsoul Client"
     def __init__(self, bot):
         self.bot = bot
-        self.client = MajsoulClient(lq_dhs)
-    
+
+        access_token = os.environ.get('mahjong_soul_access_token')
+        if access_token is None:
+            raise Exception('MajsoulClientInterface: missing mahjong_soul_access_token')
+
+        self.client = MajsoulClient(lq_dhs, access_token)
+
+    async def async_setup(self):
+        servers = await mjsoul.get_recommended_servers()
+        await self.client.connect(servers[0])
+        await self.client.login()
+
     @commands.command(name='lq-connect', hidden=True)
     async def lq_connect(self, ctx):
         async with ctx.channel.typing():
@@ -43,4 +56,6 @@ class MajsoulClientInterface(commands.Cog):
             await ctx.send('Logged in to game server.')
 
 def setup(bot):
-    bot.add_cog(MajsoulClientInterface(bot))
+    i = MajsoulClientInterface(bot)
+    bot.add_cog(i)
+    asyncio.create_task(i.async_setup())

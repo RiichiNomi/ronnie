@@ -4,17 +4,17 @@ import random
 from .channel import MajsoulChannel
 from .mjsoul import get_contest_management_servers
 
-ACCESS_TOKEN = '8900a185-cbb3-47a1-a250-803ca0b9a300'
-
 class MajsoulClient(MajsoulChannel):
-    def __init__(self, proto, log_messages=True):
+    def __init__(self, proto, access_token, log_messages=True):
         super().__init__(proto, log_messages)
+
+        self._access_token = access_token
     
     async def login(self):    
         res = await self.call(
             methodName = 'oauth2Login',
             type = 10,
-            access_token = ACCESS_TOKEN,
+            access_token = self._access_token,
         )
     
     async def fetch_game_log(self, uuid):
@@ -26,9 +26,10 @@ class MajsoulClient(MajsoulChannel):
         return res
 
 class ContestManagerClient(MajsoulChannel):
-    def __init__(self, proto, log_messages=True):
+    def __init__(self, proto, access_token, log_messages=True):
         super().__init__(proto, log_messages)
 
+        self._access_token = access_token
         self._contest_players = []
         self._active_players = []
         self._ongoing_games = []
@@ -61,7 +62,7 @@ class ContestManagerClient(MajsoulChannel):
         res = await self.call(
             methodName = 'oauth2LoginContestManager',
             type = 10,
-            access_token = ACCESS_TOKEN,
+            access_token = self._access_token,
             reconnect = True
         )
     
@@ -83,6 +84,9 @@ class ContestManagerClient(MajsoulChannel):
     
     async def unpause(self, game_uuid):
         res = await self.call('resumeGame', uuid=game_uuid)
+
+    async def terminate(self, game_uuid):
+        res = await self.call('terminateGame', serviceName='CustomizedContestManagerApi', uuid=game_uuid)
     
     async def display_players(self, res=None):
         if res == None:
@@ -91,38 +95,7 @@ class ContestManagerClient(MajsoulChannel):
         self._ongoing_games = res.games
         self._active_players = res.players
 
-        numPlaying = sum([len(game.players) for game in res.games])
-        numReady = len(res.players)
-
-        response = f'''There are currently {numReady+numPlaying} player(s) in the lobby:\n'''
-        response += f'{numReady} Ready, {numPlaying} In Game\n'
-        response += '='*25 + '\n'
-
-        if (numReady + numPlaying == 0):
-            response += 'Wow, such empty...\n'
-
-        playerNum = 0
-        for game in res.games:
-            t = "-"*40 + '\n'
-
-            for player in game.players:
-                playerNum += 1
-                name = player.nickname
-                t += f'{playerNum}. **(In Game) {player.nickname}\n**'
-
-            response += t
-        
-        if numPlaying > 0:
-            response += "-"*40 + '\n'
-        
-        for player in res.players:
-            playerNum += 1
-            name = player.nickname
-            response += f'{playerNum}. {player.nickname}\n'
-        
-        response += "="*25
-        
-        return response
+        return (res.games, res.players)
 
     async def get_player_nickname(self, playerID):
         res = await self.call('fetchContestPlayer')
@@ -137,12 +110,15 @@ class ContestManagerClient(MajsoulChannel):
         playerList = []
         for pid in playerIDs:
             playerList.append(self.proto.ReqCreateContestGame.Slot(account_id=pid))
-            await self.call('lockGamePlayer', account_id=pid)
+            # 0 is AI
+            if pid > 0:
+                await self.call('lockGamePlayer', account_id=pid)
         res = await self.call(
             methodName='createContestGame',
             slots = playerList,
             random_position=True,
             open_live=True,
+            ai_level=2
         )
     
     async def create_random_games(self):

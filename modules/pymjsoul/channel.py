@@ -3,6 +3,7 @@ import asyncio
 import websockets
 
 import google.protobuf as pb
+from .errors import ERRORS
 
 MSG_TYPE_NOTIFY = 1
 MSG_TYPE_REQUEST = 2
@@ -38,9 +39,7 @@ class MajsoulChannel():
         self.requests = {}
         self.responses = {}
 
-        self.NotifyReceivedEvent = asyncio.Event()
-        self.MostRecentNotify = None
-
+        self.Notifications = asyncio.Queue()
         self.log_messages = log_messages
     
     async def connect(self, uri):
@@ -85,12 +84,10 @@ class MajsoulChannel():
                 msg = msgClass()
                 msg.ParseFromString(data)
 
-                if (name, msg) != self.MostRecentNotify:
-                    print("Notification received.")
-                    print(name)
-                    print(msg)
-                    self.MostRecentNotify = (name, msg)
-                    self.NotifyReceivedEvent.set()
+                print("Notification received.")
+                print(name)
+                print(msg)
+                await self.Notifications.put((name, msg))
             elif msgType == MSG_TYPE_RESPONSE:
                 print("Response received.")
                 msgIndex = int.from_bytes(message[1:3], 'little')
@@ -184,7 +181,14 @@ class MajsoulChannel():
                 reconnect = True
             )
         '''
-        methodDescriptor = self.method_lookup(methodName)
+
+        # Optional method hack
+        serviceName = None
+        if 'serviceName' in msgFields:
+            serviceName = msgFields['serviceName']
+            del msgFields['serviceName']
+
+        methodDescriptor = self.method_lookup(methodName, serviceName)
         
         msgName = f'.{methodDescriptor.full_name}'
 
@@ -199,22 +203,26 @@ class MajsoulChannel():
 
         if resMessage.error.code:
             print(resMessage)
-            raise GeneralMajsoulError(resMessage.error.code, 'error')
+            raise GeneralMajsoulError(resMessage.error.code, ERRORS.get(resMessage.error.code, 'Unknown error'))
         
         if self.log_messages:
             print(resMessage)
 
         return resMessage
     
-    def method_lookup(self, methodName):
+    def method_lookup(self, methodName, serviceName):
         methodDescriptor = None
 
-        for serviceDescriptor in self.proto.DESCRIPTOR.services_by_name.values():
-            try:
-                methodDescriptor = serviceDescriptor.FindMethodByName(methodName)
-                break
-            except KeyError:
-                continue
+        if serviceName:
+            serviceDescriptor = self.proto.DESCRIPTOR.services_by_name[serviceName]
+            methodDescriptor = serviceDescriptor.FindMethodByName(methodName)
+        else:
+            for serviceDescriptor in self.proto.DESCRIPTOR.services_by_name.values():
+                try:
+                    methodDescriptor = serviceDescriptor.FindMethodByName(methodName)
+                    break
+                except KeyError:
+                    continue
         
         if methodDescriptor == None:
             raise MethodNotFoundError(methodName, self.proto.__name__)
@@ -249,7 +257,7 @@ async def main():
     res = await channel.call(
         methodName='oauth2Login',
         type=10,
-        access_token='29992fef-b40d-4cbd-b59f-0db261782a7c'
+        access_token='YOUR_TOKEN_HERE',
     )
 
     res = await channel.call(

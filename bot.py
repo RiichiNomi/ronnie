@@ -12,8 +12,11 @@ env_path = join(dirname(__file__), 'config.env')
 dotenv.load_dotenv('config.env')
 
 PREFIXES = os.environ.get('command_prefixes').split()
-TOKEN = os.environ.get('bot_token')
+DISCORD_TOKEN = os.environ.get('bot_token')
 EXTENSIONS_FILE = os.environ.get('extensions_file')
+
+if DISCORD_TOKEN is None:
+    raise Exception("Missing bot_token in config.env")
 
 #INITIATE LIST OF EXTENSIONS TO LOAD AFTER STARTUP
 
@@ -79,4 +82,4 @@ async def reload_extension(ctx, extension_name=None):
 #START THE BOT
 if __name__ == "__main__":
     bot.remove_command('help')
-    bot.run(TOKEN)
+    bot.run(DISCORD_TOKEN)

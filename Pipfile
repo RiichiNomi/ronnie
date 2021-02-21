@@ -12,6 +12,3 @@ tabulate = "*"
 pandas = "*"
 
 [dev-packages]
-
-[requires]
-python_version = "3.7"
