@@ -16,11 +16,13 @@ All without leaving the friendly confines of Discord!
 
 ## Prerequisites
 
-* A tournament lobby.
+* A tournament lobby. Check out the [guide] for how to purchase one.
 * A Mahjong Soul account dedicated to the bot, which uses Twitter authentication.
 * A Discord application and associated bot token.
 * Bot is invited to a server of your choice.
 * Python 3.8 with `pipenv`
+
+[guide]: https://docs.google.com/document/d/15MW4yLDGqpc8FjySEqYmHFyUAq5mJWW8PtQwG-Hdw3s/edit
 
 ## Installation
 
