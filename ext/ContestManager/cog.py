@@ -435,7 +435,7 @@ class ContestManagerInterface(commands.Cog):
                 return
 
             if self.list_message != None:
-                await self.list_message.edit(content=f'*{self.list_message.content}*')
+                await self.list_message.delete()
 
             games, queued = await self.client.display_players()
             other = await self.client.contest_players
@@ -620,7 +620,9 @@ class ContestManagerInterface(commands.Cog):
 
         queued_player_set = {p.nickname for p in queued}
 
-        response = f'**[Tournament Mode]** Join the Tournament Lobby: {self.contest.contest_id} and press _Prepare for Match_\n\n'
+        response = f'**[Tournament Mode]**'
+        response += f'Join the Tournament Lobby: {self.contest.contest_id} and press _Prepare for Match_\n\n'
+
         for (i, table) in enumerate(self.layout):
             response += f'**Table {i+1}**:\n'
             for (j, player) in enumerate(table):
