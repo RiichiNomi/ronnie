@@ -1,0 +1,4 @@
+#!/bin/bash
+# Decode a base64 Mahjong Soul websocket message, in hopes of finding an auth token.
+
+echo -n "$@" | base64 -d | dd bs=1 skip=3 | protobuf_inspector

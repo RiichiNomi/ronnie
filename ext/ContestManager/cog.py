@@ -25,6 +25,16 @@ ROUND_TYPES = [
     '4-Player South',
     '4-Player (vs AI)',
     '4-Player (1 Game)',
+    None,
+    None,
+    None,
+    None,
+    None,
+    None,
+    '3-Player East', # index 11
+    '3-Player South',
+    '3-Player (vs AI)',
+    '3-Player (1 Game)',
 ]
 
 THINKING_TIMES = [
