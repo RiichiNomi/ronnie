@@ -242,6 +242,9 @@ class ContestManagerInterface(commands.Cog):
                 await ctx.send("Invalid path {path}")
                 return
 
+            # We can make sure all CSV players are registered in the tournament lobby.
+            registered = {p.nickname for p in await self.client.contest_players}
+
             self.layout = []
             with open(base) as csvfile:
                 c = csv.reader(csvfile)
@@ -254,6 +257,8 @@ class ContestManagerInterface(commands.Cog):
                         if person == "":
                             await ctx.send(f"Invalid player in row: {row}")
                             return
+                        elif person not in registered:
+                            await ctx.send(f"Player is not registered with tournament lobby: {p}")
 
                     # TODO(joshk): Check the nickname is valid against the lobby whitelist
                     self.layout.append(row)
@@ -481,8 +486,7 @@ class ContestManagerInterface(commands.Cog):
                 await self.list_message.delete()
 
             games, queued = await self.client.display_players()
-            other = await self.client.contest_players
-            list_display = self.render_lobby_output(games, queued, other)
+            list_display = self.render_lobby_output(games, queued)
 
             self.list_message = await self.main_channel.send(list_display)
             await self.list_message.add_reaction(REACTION_HUMAN)
@@ -544,8 +548,7 @@ class ContestManagerInterface(commands.Cog):
 
     async def refresh_message(self, res=None):
         games, queued = await self.client.display_players(res)
-        other = await self.client.contest_players
-        list_display = self.render_lobby_output(games, queued, other)
+        list_display = self.render_lobby_output(games, queued)
         await self.list_message.edit(content=list_display)
 
     async def create_game_helper(self, discord_channel, table):
@@ -643,18 +646,18 @@ class ContestManagerInterface(commands.Cog):
         if self.list_message != None:
             await self.refresh_message(res)
 
-    def render_lobby_output(self, games, queued, other):
+    def render_lobby_output(self, games, queued):
         if self.layout:
-            content = self.render_lobby_output_with_layout(games, queued, other)
+            content = self.render_lobby_output_with_layout(games, queued)
         else:
-            content = self.render_lobby_output_casual(games, queued, other)
+            content = self.render_lobby_output_casual(games, queued)
 
         content += f'{REACTION_HUMAN} Click the die to start games with humans only.\n'
         content += f'{REACTION_BOT} Click the robot to start games with humans and AI.\n'
 
         return content
 
-    def render_lobby_output_with_layout(self, games, queued, other):
+    def render_lobby_output_with_layout(self, games, queued):
         in_game_player_set = set()
 
         for game in games:
@@ -680,7 +683,7 @@ class ContestManagerInterface(commands.Cog):
 
         return response
 
-    def render_lobby_output_casual(self, games, queued, other):
+    def render_lobby_output_casual(self, games, queued):
         numPlaying = sum([len(game.players) for game in games])
         numReady = len(queued)
 
