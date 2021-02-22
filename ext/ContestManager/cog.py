@@ -69,6 +69,9 @@ class ContestManagerInterface(commands.Cog):
         if access_token is None:
             raise Exception("missing mahjong_soul_access_token in environment / config.env")
 
+        trusted_user_ids = [int(x) for x in os.environ.get('trusted_user_ids', '').split(',')]
+        self.trusted_user_ids = trusted_user_ids
+
         self.client = ContestManagerClient(lq_dhs, access_token)
         self.contest = None
 
@@ -102,6 +105,12 @@ class ContestManagerInterface(commands.Cog):
     async def login(self):
         await self.client.login()
         asyncio.create_task(self.notify_listener())
+
+    async def is_admin(self, ctx):
+        if ctx.author.id not in self.trusted_user_ids:
+            await ctx.send("Only administrators may use that command.")
+            return False
+        return True
 
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
@@ -184,6 +193,9 @@ class ContestManagerInterface(commands.Cog):
         Second Line
         '''
         async with ctx.channel.typing():
+            if not self.is_admin(ctx):
+                return
+
             try:
                 await self.connect()
             except Exception as e:
@@ -194,6 +206,9 @@ class ContestManagerInterface(commands.Cog):
     @commands.command(name='login', hidden=True)
     async def dhs_login(self, ctx):
         async with ctx.channel.typing():
+            if not self.is_admin(ctx):
+                return
+
             if not self.client.websocket or not self.client.websocket.open:
                 await self.dhs_connect(ctx)
 
@@ -219,6 +234,9 @@ class ContestManagerInterface(commands.Cog):
         of the bot and end in .csv. '.' and '..' are automatically rejected.
         """
         async with ctx.channel.typing():
+            if not self.is_admin(ctx):
+                return
+
             base = os.path.basename(path)
             if base == '.' or base == '..' or os.path.splitext(base)[1] != '.csv':
                 await ctx.send("Invalid path {path}")
@@ -255,6 +273,9 @@ class ContestManagerInterface(commands.Cog):
         '''
 
         async with ctx.channel.typing():
+            if not self.is_admin(ctx):
+                return
+
             if not self.client.websocket or not self.client.websocket.open:
                 await ctx.send('Client not connected.')
                 return
@@ -378,6 +399,9 @@ class ContestManagerInterface(commands.Cog):
         '''
 
         async with ctx.channel.typing():
+            if not self.is_admin(ctx):
+                return
+
             if not self.client.websocket or not self.client.websocket.open:
                 await ctx.send('Client not connected.')
                 return
@@ -403,8 +427,10 @@ class ContestManagerInterface(commands.Cog):
 
     @commands.command(name='manage', hidden=True)
     async def dhs_manage_contest(self, ctx, lobbyID:int):
-
         async with ctx.channel.typing():
+            if not self.is_admin(ctx):
+                return
+
             if not self.client.websocket or not self.client.websocket.open:
                 await ctx.send('Client not connected.')
                 return
