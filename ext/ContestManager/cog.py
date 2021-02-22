@@ -445,6 +445,20 @@ class ContestManagerInterface(commands.Cog):
             await ctx.send(f"Entered lobby management for lobby {lobbyID}.")
 
 
+    @commands.command(name='casual')
+    async def cmd_casual(self, ctx):
+        "Revert the bot to casual mode."
+        async with ctx.channel.typing();
+            if not self.is_admin(ctx):
+                return
+
+            if self.layout:
+                await ctx.send('Tournament mode disabled!')
+            else:
+                await ctx.send('Casual mode already enabled. No changes made.')
+
+            self.layout = []
+
     @commands.command(name='list')
     async def dhs_show_active_players(self, ctx):
         '''Displays the lobby.
