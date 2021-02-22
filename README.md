@@ -8,7 +8,7 @@ A fully featured Discord bot which supports managing games in a [Mahjong Soul] p
 
 * See who is waiting in the lobby (`ms/list`)
 * Shuffle people into tables randomly and start games (`ms/shuffle`)
-* Show the status of a fixed table layout and start the game with that layout once everyone is ready
+* Show the status of a fixed table layout and start the game with that layout once everyone is ready (`ms/loadtable`)
 * Pause and unpause games in progress (`ms/pause`, `ms/unpause`) and end them (`ms/terminate`)
 * Display all tournament rule settings (`ms/rules`), ability to update select settings (`ms/setrule`)
 * Track tournament scores using custom options (`ms/score`)
