@@ -663,7 +663,7 @@ class ContestManagerInterface(commands.Cog):
 
         queued_player_set = {p.nickname for p in queued}
 
-        response = f'**[Tournament Mode]**\n'
+        response = f'**[Tournament: {self.contest.contest_name}]**\n'
         response += f'Join the Tournament Lobby: {self.contest.contest_id} and press _Prepare for Match_\n\n'
 
         for (i, table) in enumerate(self.layout):
@@ -684,7 +684,7 @@ class ContestManagerInterface(commands.Cog):
         numPlaying = sum([len(game.players) for game in games])
         numReady = len(queued)
 
-        response = f'**[Casual Games]**\n'
+        response = f'**[Casual Games: {self.contest.contest_name}]**\n'
         response += f'Join the Tournament Lobby: {self.contest.contest_id} and press _Prepare for Match_\n'
         response += f'{numReady} Ready, {numPlaying} In Game\n\n'
 
