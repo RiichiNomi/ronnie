@@ -687,7 +687,7 @@ class ContestManagerInterface(commands.Cog):
         response += f'{numReady} Ready, {numPlaying} In Game\n\n'
 
         if (numReady + numPlaying == 0):
-            response += 'Wow, such empty...\n'
+            response += '_[No players in lobby]_\n\n'
 
         for (i, game) in enumerate(games):
             if i == 0:
