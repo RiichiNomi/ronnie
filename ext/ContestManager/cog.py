@@ -259,6 +259,7 @@ class ContestManagerInterface(commands.Cog):
                             return
                         elif person not in registered:
                             await ctx.send(f"Player is not registered with tournament lobby: {person}")
+                            return
 
                     # TODO(joshk): Check the nickname is valid against the lobby whitelist
                     self.layout.append(row)
