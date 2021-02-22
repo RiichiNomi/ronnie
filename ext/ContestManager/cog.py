@@ -448,7 +448,8 @@ class ContestManagerInterface(commands.Cog):
     @commands.command(name='casual')
     async def cmd_casual(self, ctx):
         "Revert the bot to casual mode."
-        async with ctx.channel.typing();
+
+        async with ctx.channel.typing():
             if not self.is_admin(ctx):
                 return
 
