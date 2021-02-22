@@ -661,7 +661,7 @@ class ContestManagerInterface(commands.Cog):
 
         queued_player_set = {p.nickname for p in queued}
 
-        response = f'**[Tournament Mode]**'
+        response = f'**[Tournament Mode]**\n'
         response += f'Join the Tournament Lobby: {self.contest.contest_id} and press _Prepare for Match_\n\n'
 
         for (i, table) in enumerate(self.layout):
