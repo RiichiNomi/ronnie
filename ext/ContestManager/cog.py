@@ -239,7 +239,7 @@ class ContestManagerInterface(commands.Cog):
 
             base = os.path.basename(path)
             if base == '.' or base == '..' or os.path.splitext(base)[1] != '.csv':
-                await ctx.send("Invalid path {path}")
+                await ctx.send(f'Invalid path {path}')
                 return
 
             # We can make sure all CSV players are registered in the tournament lobby.
