@@ -221,12 +221,12 @@ class ContestManagerInterface(commands.Cog):
 
             await ctx.send('Logged in to contest manager.')
 
-    @commands.command(name='loadtable', hidden=True)
+    @commands.command(name='tournament', hidden=True)
     async def load_table(self, ctx, path:str = None):
         """
-        Loads a table layout from a local file formatted as a CSV.
+        Loads a tournament multi-table layout from a local file formatted as a CSV.
 
-        Usage: `ms/loadtable <localfile.csv>`
+        Usage: `ms/tournament <localfile.csv>`
         Each row represents a table and is a comma separated list of Mahjong Soul nicknames.
         In each row, the first person is East, the second is South and so on.
 
@@ -258,7 +258,8 @@ class ContestManagerInterface(commands.Cog):
                     # TODO(joshk): Check the nickname is valid against the lobby whitelist
                     self.layout.append(row)
 
-            await ctx.send(f"Loaded {len(self.layout)}-table layout from {base}.")
+            await ctx.send(f"Tournament mode enabled with {len(self.layout)} tables!")
+            await self.dhs_show_active_players(ctx)
 
     @commands.command(name='setrule')
     async def set_rule(self, ctx, rule:str = None, value:str = None):
@@ -459,6 +460,7 @@ class ContestManagerInterface(commands.Cog):
                 await ctx.send('Casual mode already enabled. No changes made.')
 
             self.layout = []
+            await self.dhs_show_active_players(ctx)
 
     @commands.command(name='list')
     async def dhs_show_active_players(self, ctx):
