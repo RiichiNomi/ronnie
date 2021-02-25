@@ -58,7 +58,7 @@ class TournamentScoreTracker(commands.Cog):
 
                 self.players.loc[account_id] = entry
     
-    async def record_game(self, players, points, round_mode='round'):
+    async def record_game(self, players, points, rules):
         '''
         Input:
             players - list of tuples (ID, name) where ID is the player's majsoul id 
@@ -72,7 +72,12 @@ class TournamentScoreTracker(commands.Cog):
 
         ScoreCalculator = self.bot.get_cog('ScoreCalculator')
 
-        scores = ScoreCalculator.calculate_scores(points, 30000, 30000, [15, 5, -5, -15])
+        uma = [
+            -1 * (rules.shunweima_2 + rules.shunweima_3 + rules.shunweima_4),
+            rules.shunweima_2, rules.shunweima_3, rules.shunweima_4
+        ]
+
+        scores = ScoreCalculator.calculate_scores(points, rules.init_point, rules.fandian, uma)
 
         if round_mode == 'round':
             scores = [round(p, 1) for p in scores]
