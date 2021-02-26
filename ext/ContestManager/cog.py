@@ -116,7 +116,11 @@ class ContestManagerInterface(commands.Cog):
     async def on_reaction_add(self, reaction, user):
         if user.bot:
             return
-        if self.list_message and reaction.message.id != self.list_message.id:
+
+        # Only reactions to the list message would be handled
+        if not self.list_message:
+            return
+        if reaction.message.id != self.list_message.id:
             return
 
         await reaction.remove(user)
