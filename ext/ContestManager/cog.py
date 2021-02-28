@@ -187,6 +187,8 @@ class ContestManagerInterface(commands.Cog):
             embed.add_field(name='Head Bump', value=rules.have_toutiao)
             #Multiple Yakuman
             embed.add_field(name='Multiple Yakuman', value=not rules.disable_multi_yukaman)
+            #Local Yaku
+            embed.add_field(name='Local Yaku', value=(rules.guyi_mode == 1))
 
         await ctx.send(embed=embed)
 
@@ -197,7 +199,7 @@ class ContestManagerInterface(commands.Cog):
         Second Line
         '''
         async with ctx.channel.typing():
-            if not self.is_admin(ctx):
+            if not await self.is_admin(ctx):
                 return
 
             try:
@@ -210,7 +212,7 @@ class ContestManagerInterface(commands.Cog):
     @commands.command(name='login', hidden=True)
     async def dhs_login(self, ctx):
         async with ctx.channel.typing():
-            if not self.is_admin(ctx):
+            if not await self.is_admin(ctx):
                 return
 
             if not self.client.websocket or not self.client.websocket.open:
@@ -238,7 +240,7 @@ class ContestManagerInterface(commands.Cog):
         of the bot and end in .csv. '.' and '..' are automatically rejected.
         """
         async with ctx.channel.typing():
-            if not self.is_admin(ctx):
+            if not await self.is_admin(ctx):
                 return
 
             base = os.path.basename(path)
@@ -279,12 +281,13 @@ class ContestManagerInterface(commands.Cog):
         Supported rule ids and values:
         * gametype: east, south, single (All 4-player)
         * turntime: 3+5, 5+10, 5+20, 60
+        * localyaku: on, off
 
         Usage: `ms/setrule <ruleid> <value>`
         '''
 
         async with ctx.channel.typing():
-            if not self.is_admin(ctx):
+            if not await self.is_admin(ctx):
                 return
 
             if not self.client.websocket or not self.client.websocket.open:
@@ -313,6 +316,15 @@ class ContestManagerInterface(commands.Cog):
                     return
 
                 rules.round_type = mapped
+            elif rule == 'localyaku':
+                mapping = {'on': 1, 'off': 0}
+                mapped = mapping.get(value, 'MISSING') # because the off value, 0, is falsey
+
+                if mapped == 'MISSING':
+                    await ctx.send(f'Invalid value for {rule}. Valid: {", ".join(mapping.keys())}')
+                    return
+
+                rules.detail_rule_v2.game_rule.guyi_mode = mapped
             else:
                 await ctx.send(f'Unrecognized rule to set. Valid: gametype, turntime')
                 return
@@ -410,7 +422,7 @@ class ContestManagerInterface(commands.Cog):
         '''
 
         async with ctx.channel.typing():
-            if not self.is_admin(ctx):
+            if not await self.is_admin(ctx):
                 return
 
             if not self.client.websocket or not self.client.websocket.open:
@@ -439,7 +451,7 @@ class ContestManagerInterface(commands.Cog):
     @commands.command(name='manage', hidden=True)
     async def dhs_manage_contest(self, ctx, lobbyID:int):
         async with ctx.channel.typing():
-            if not self.is_admin(ctx):
+            if not await self.is_admin(ctx):
                 return
 
             if not self.client.websocket or not self.client.websocket.open:
@@ -461,7 +473,7 @@ class ContestManagerInterface(commands.Cog):
         "Revert the bot to casual mode."
 
         async with ctx.channel.typing():
-            if not self.is_admin(ctx):
+            if not await self.is_admin(ctx):
                 return
 
             if self.layout:
