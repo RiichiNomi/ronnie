@@ -547,15 +547,12 @@ class ContestManagerInterface(commands.Cog):
         players = [p for p in await self.client.active_players]
 
         if withBots:
-            remainder = len(players) % 4
+            remainder = 4 - (len(players) % 4)
             for _ in range(remainder):
                 players.append(AI())
 
-            random.shuffle(players)
-            tables = chunk_pad(players, 4, AI())
-        else:
-            random.shuffle(players)
-            tables = chunk(players, 4)
+        random.shuffle(players)
+        tables = chunk(players, 4)
 
         for table in tables:
             if len(table) == 4:
