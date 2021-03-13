@@ -1,6 +1,7 @@
 import asyncio
 import csv
 from itertools import islice, chain, repeat
+import math
 import os
 import random
 
@@ -547,7 +548,11 @@ class ContestManagerInterface(commands.Cog):
         players = [p for p in await self.client.active_players]
 
         if withBots:
-            remainder = len(players) - int(len(players) / 4) * 4
+            # Get number of partial tables (e.g. 1.25 tables with 5 players),
+            # round that up to the next integer number of tables. Multiply
+            # by players per table. subtract players.
+            # if len(players) % 4 == 0, remainder should be 0
+            remainder = math.ceil(len(players) / 4.0) * 4 - len(players)
             for _ in range(remainder):
                 players.append(AI())
 
