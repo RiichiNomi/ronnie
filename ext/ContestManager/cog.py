@@ -547,7 +547,7 @@ class ContestManagerInterface(commands.Cog):
         players = [p for p in await self.client.active_players]
 
         if withBots:
-            remainder = 4 - (len(players) % 4)
+            remainder = len(players) - int(len(players) / 4) * 4
             for _ in range(remainder):
                 players.append(AI())
 
