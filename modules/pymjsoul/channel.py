@@ -29,21 +29,26 @@ class GeneralMajsoulError(Exception):
 class MajsoulChannel():
     _RESPONSE_TIMEOUT_DURATION = 10
 
-    def __init__(self, proto, log_messages=True): 
+    def __init__(self, proto, log_messages=True):
         self.websocket = None
+        self.websocket_lock = asyncio.Lock()
+
         self.uri = None
 
         self.proto = proto
-        
+
         self.index = 0
         self.requests = {}
         self.responses = {}
 
+        self._subscriptions = {}
+        self._subscriptions_lock = asyncio.Lock()
+
         self.Notifications = asyncio.Queue()
         self.log_messages = log_messages
-    
+
     async def connect(self, uri):
-        self.uri = uri 
+        self.uri = uri
 
         self.websocket = await websockets.connect(self.uri)
 
@@ -51,6 +56,7 @@ class MajsoulChannel():
 
         asyncio.create_task(self.sustain())
         asyncio.create_task(self.listen())
+        asyncio.create_task(self.eventloop())
 
     async def sustain(self, ping_interval=3):
         '''
@@ -59,7 +65,24 @@ class MajsoulChannel():
         while self.websocket.open:
             await self.websocket.ping()
             await asyncio.sleep(ping_interval)
-    
+
+    async def subscribe(self, name, cb):
+        async with self._subscriptions_lock:
+            if name in self._subscriptions:
+                self._subscriptions[name].append(cb)
+            else:
+                self._subscriptions[name] = [cb]
+
+    async def eventloop(self):
+        ''' Event loop running as a separate coroutine to listen(), otherwise we can run into deadlock. '''
+        while True:
+            name, msg = await self.Notifications.get()
+            if name in self._subscriptions:
+                for sub_callback in self._subscriptions[name]:
+                    await sub_callback(name, msg)
+            else:
+                print(f"Notification for {name} had no subscribers.")
+
     async def listen(self):
         '''
         Looping coroutine that receives messages from the server.
@@ -70,7 +93,7 @@ class MajsoulChannel():
             if msgType == MSG_TYPE_NOTIFY:
                 msgPayload = message[1:]
                 name, data = self.unwrap(msgPayload)
-                
+
                 name = name.strip(f'.{self.proto.DESCRIPTOR.package}')
 
                 try:
@@ -87,25 +110,26 @@ class MajsoulChannel():
                 print("Notification received.")
                 print(name)
                 print(msg)
+
                 await self.Notifications.put((name, msg))
             elif msgType == MSG_TYPE_RESPONSE:
                 print("Response received.")
                 msgIndex = int.from_bytes(message[1:3], 'little')
                 msgPayload = message[3:]
 
-                if msgIndex in self.requests: 
+                if msgIndex in self.requests:
                     name, data = self.unwrap(msgPayload)
                     self.responses[msgIndex] = data
 
                     resEvent = self.requests[msgIndex]
                     resEvent.set()
-    
+
     async def close(self):
         await self.websocket.close()
 
     async def send(self, name:str, data:bytes):
         '''
-        Sends a message/request to the server. 
+        Sends a message/request to the server.
 
         Param:
             name : str
@@ -114,7 +138,7 @@ class MajsoulChannel():
             data : bytes
                 Message payload to be sent. This needs to be a byte string. After creating a protobuf message 'msg'
                 you can call msg.SerializeToString() and pass it in as this parameter.
-        
+
         Info:
             The messages that are sent/received are formatted differently depending on the type of message (notify/request/response).
 
@@ -122,45 +146,46 @@ class MajsoulChannel():
 
             Byte #:     0       1       2       3       4       5     .... and so on
                      ___|___ ___|___ ___|___ ___|___ ___|___ ___|___
-                    |       |               |   
+                    |       |               |
                     | MSG   |    MESSAGE    |      MESSAGE            ....
                     | TYPE  |     INDEX     |      PAYLOAD            .... rest of the message
                     |_______|_______ _______|_______ _______ _______
-            
+
             NOTIFY:
 
-            Byte #:     0       1       2    .... and so on          
-                     ___|___ ___|___ ___|___ 
-                    |       |                
-                    | MSG   |    MESSAGE     .... 
-                    | TYPE  |    PAYLOAD     .... rest of the message     
-                    |_______|_______ _______ 
+            Byte #:     0       1       2    .... and so on
+                     ___|___ ___|___ ___|___
+                    |       |
+                    | MSG   |    MESSAGE     ....
+                    | TYPE  |    PAYLOAD     .... rest of the message
+                    |_______|_______ _______
         '''
 
         msgIndex = self.index
         self.index = (self.index + 1) % MAX_MSG_INDEX
-   
+
         wrapped = self.wrap(name, data)
         message = MSG_TYPE_REQUEST.to_bytes(1, 'little') + msgIndex.to_bytes(2, 'little') + wrapped
 
         resEvent = asyncio.Event()
         self.requests[msgIndex] = resEvent
 
-        await self.websocket.send(message)
+        async with self.websocket_lock:
+            await self.websocket.send(message)
 
-        try:
-            await asyncio.wait_for(resEvent.wait(), timeout=self._RESPONSE_TIMEOUT_DURATION)
-        except asyncio.TimeoutError:
+            try:
+                await asyncio.wait_for(resEvent.wait(), timeout=self._RESPONSE_TIMEOUT_DURATION)
+            except asyncio.TimeoutError:
+                del self.requests[msgIndex]
+                raise ResponseTimeoutError(self._RESPONSE_TIMEOUT_DURATION)
+
+            res = self.responses[msgIndex]
+
+            del self.responses[msgIndex]
             del self.requests[msgIndex]
-            raise ResponseTimeoutError(self._RESPONSE_TIMEOUT_DURATION)
-        
-        res = self.responses[msgIndex]
 
-        del self.responses[msgIndex]
-        del self.requests[msgIndex]
+            return res
 
-        return res
-    
     async def call(self, methodName, **msgFields):
         '''
         Simpler method for sending requests. Looks up the request and processes the fields for you.
@@ -169,10 +194,10 @@ class MajsoulChannel():
         Param:
             methodName : str
                 Name of the method to be called (without package name). Example: 'oauth2Login'
-            
+
             **msgFields : dict
                 Fields to be entered into the protobuf message.
-        
+
         Example Usage:
             res = await self.call(
                 methodName = 'oauth2LoginContestManager',
@@ -189,7 +214,7 @@ class MajsoulChannel():
             del msgFields['serviceName']
 
         methodDescriptor = self.method_lookup(methodName, serviceName)
-        
+
         msgName = f'.{methodDescriptor.full_name}'
 
         reqMessageClass = pb.reflection.MakeClass(methodDescriptor.input_type)
@@ -204,12 +229,12 @@ class MajsoulChannel():
         if resMessage.error.code:
             print(resMessage)
             raise GeneralMajsoulError(resMessage.error.code, ERRORS.get(resMessage.error.code, 'Unknown error'))
-        
+
         if self.log_messages:
             print(resMessage)
 
         return resMessage
-    
+
     def method_lookup(self, methodName, serviceName):
         methodDescriptor = None
 
@@ -223,20 +248,20 @@ class MajsoulChannel():
                     break
                 except KeyError:
                     continue
-        
+
         if methodDescriptor == None:
             raise MethodNotFoundError(methodName, self.proto.__name__)
-            
+
         return methodDescriptor
-    
+
     def message_lookup(self, messageName):
         return self.proto.DESCRIPTOR.message_types_by_name[messageName]
 
-    def wrap(self, name, data):   
+    def wrap(self, name, data):
         msg = self.proto.Wrapper(name=name, data=data)
 
         return msg.SerializeToString()
-    
+
     def unwrap(self, wrapped):
         msg = self.proto.Wrapper()
         msg.ParseFromString(wrapped)

@@ -79,6 +79,9 @@ class ContestManagerInterface(commands.Cog):
         self.main_channel = None
         self.list_message = None
 
+        self._started_event = None
+        self._create_game_lock = asyncio.Lock()
+
     async def async_setup(self):
         "Perform launch setup steps to allow usability right after restarting."
         await self.connect()
@@ -105,7 +108,9 @@ class ContestManagerInterface(commands.Cog):
 
     async def login(self):
         await self.client.login()
-        asyncio.create_task(self.notify_listener())
+        await self.client.subscribe('NotifyContestMatchingPlayer', self.on_NotifyContestMatchingPlayer)
+        await self.client.subscribe('NotifyContestGameStart', self.on_NotifyContestGameStart)
+        await self.client.subscribe('NotifyContestGameEnd', self.on_NotifyContestGameEnd)
 
     async def is_admin(self, ctx):
         if ctx.author.id not in self.trusted_user_ids:
@@ -571,10 +576,14 @@ class ContestManagerInterface(commands.Cog):
         await self.list_message.edit(content=list_display)
 
     async def create_game_helper(self, discord_channel, table):
-        id_table = [p.account_id for p in table]
-        await self.client.create_game(id_table)
-        await discord_channel.send(f"Game starting for {table[0].nickname} | {table[1].nickname} | {table[2].nickname} | {table[3].nickname}")
+        async with self._create_game_lock:
+            self._started_event = asyncio.Event()
 
+            id_table = [p.account_id for p in table]
+            await self.client.create_game(id_table)
+            await self._started_event.wait()
+
+            await discord_channel.send(f"Game starting for {table[0].nickname} | {table[1].nickname} | {table[2].nickname} | {table[3].nickname}")
 
     @commands.command(name='shuffle')
     async def dhs_create_random_games(self, ctx):
@@ -588,18 +597,7 @@ class ContestManagerInterface(commands.Cog):
         async with ctx.channel.typing():
             await self.shuffle(ctx.channel)
 
-    async def notify_listener(self):
-        while True:
-            name, msg = await self.client.Notifications.get()
-
-            if name == 'NotifyContestMatchingPlayer':
-                await self.on_NotifyContestMatchingPlayer(msg)
-            elif name == 'NotifyContestGameEnd':
-                await self.on_NotifyContestGameEnd(msg)
-            else:
-                print(f"Unexpected notification type {name}")
-
-    async def on_NotifyContestGameEnd(self, msg):
+    async def on_NotifyContestGameEnd(self, _, msg):
         uuid = msg.game_uuid
 
         MajsoulClientInterface = self.bot.get_cog('MajsoulClientInterface')
@@ -638,7 +636,14 @@ class ContestManagerInterface(commands.Cog):
         if self.list_message != None:
             await self.refresh_message()
 
-    async def on_NotifyContestMatchingPlayer(self, msg):
+    async def on_NotifyContestGameStart(self, _, msg):
+        if not self._started_event:
+            print(f'NotifyContestGameStart received but not waiting for a game!')
+
+        self._started_event.set()
+        self._started_event = None
+
+    async def on_NotifyContestMatchingPlayer(self, name, msg):
         if self.main_channel == None:
             return
 
