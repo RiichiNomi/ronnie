@@ -76,6 +76,11 @@ class ContestManagerInterface(commands.Cog):
         self.client = ContestManagerClient(lq_dhs, access_token)
         self.contest = None
 
+        self.main_channel_id = os.environ.get('discord_channel_id')
+        if not self.main_channel_id:
+            raise Exception("missing discord_channel_id in environment / config.env")
+        self.main_channel_id = int(self.main_channel_id)
+
         self.main_channel = None
         self.list_message = None
 
@@ -204,6 +209,11 @@ class ContestManagerInterface(commands.Cog):
 
         Second Line
         '''
+        if ctx.channel.id != self.main_channel_id:
+            return
+
+        self.main_channel = ctx.channel
+
         async with ctx.channel.typing():
             if not await self.is_admin(ctx):
                 return
@@ -217,6 +227,11 @@ class ContestManagerInterface(commands.Cog):
 
     @commands.command(name='login', hidden=True)
     async def dhs_login(self, ctx):
+        if ctx.channel.id != self.main_channel_id:
+            return
+
+        self.main_channel = ctx.channel
+
         async with ctx.channel.typing():
             if not await self.is_admin(ctx):
                 return
@@ -245,6 +260,11 @@ class ContestManagerInterface(commands.Cog):
         To prevent path traversal the path is basename'd. The file must exist in the cwd
         of the bot and end in .csv. '.' and '..' are automatically rejected.
         """
+        if ctx.channel.id != self.main_channel_id:
+            return
+
+        self.main_channel = ctx.channel
+
         async with ctx.channel.typing():
             if not await self.is_admin(ctx):
                 return
@@ -291,6 +311,10 @@ class ContestManagerInterface(commands.Cog):
 
         Usage: `ms/setrule <ruleid> <value>`
         '''
+        if ctx.channel.id != self.main_channel_id:
+            return
+
+        self.main_channel = ctx.channel
 
         async with ctx.channel.typing():
             if not await self.is_admin(ctx):
@@ -350,6 +374,10 @@ class ContestManagerInterface(commands.Cog):
 
         Pauses an ongoing game for `<majsoul-user>`. If the command is invoked without any arguments, the bot will use the Majsoul name registered to the Discord user who invoked the command.
         '''
+        if ctx.channel.id != self.main_channel_id:
+            return
+
+        self.main_channel = ctx.channel
 
         async with ctx.channel.typing():
             if not self.client.websocket or not self.client.websocket.open:
@@ -388,6 +416,10 @@ class ContestManagerInterface(commands.Cog):
 
         Resumes an ongoing game for `<majsoul-user>`. If the command is invoked without any arguments, the bot will use the Majsoul name registered to the Discord user who invoked the command.
         '''
+        if ctx.channel.id != self.main_channel_id:
+            return
+
+        self.main_channel = ctx.channel
 
         async with ctx.channel.typing():
             if not self.client.websocket or not self.client.websocket.open:
@@ -426,6 +458,10 @@ class ContestManagerInterface(commands.Cog):
 
         Terminates an ongoing game for `<majsoul-user>`. If the command is invoked without any arguments, the bot will use the Majsoul name registered to the Discord user who invoked the command.
         '''
+        if ctx.channel.id != self.main_channel_id:
+            return
+
+        self.main_channel = ctx.channel
 
         async with ctx.channel.typing():
             if not await self.is_admin(ctx):
@@ -456,6 +492,11 @@ class ContestManagerInterface(commands.Cog):
 
     @commands.command(name='manage', hidden=True)
     async def dhs_manage_contest(self, ctx, lobbyID:int):
+        if ctx.channel.id != self.main_channel_id:
+            return
+
+        self.main_channel = ctx.channel
+
         async with ctx.channel.typing():
             if not await self.is_admin(ctx):
                 return
@@ -477,6 +518,10 @@ class ContestManagerInterface(commands.Cog):
     @commands.command(name='casual')
     async def cmd_casual(self, ctx):
         "Revert the bot to casual mode."
+        if ctx.channel.id != self.main_channel_id:
+            return
+
+        self.main_channel = ctx.channel
 
         async with ctx.channel.typing():
             if not await self.is_admin(ctx):
@@ -498,6 +543,8 @@ class ContestManagerInterface(commands.Cog):
 
         Displays the names of all players who are currently queued up in the Majsoul tournament lobby.
         '''
+        if ctx.channel.id != self.main_channel_id:
+            return
 
         self.main_channel = ctx.channel
         async with ctx.channel.typing():
@@ -639,6 +686,7 @@ class ContestManagerInterface(commands.Cog):
     async def on_NotifyContestGameStart(self, _, msg):
         if not self._started_event:
             print(f'NotifyContestGameStart received but not waiting for a game!')
+            return
 
         self._started_event.set()
         self._started_event = None

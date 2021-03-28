@@ -10,5 +10,6 @@ discord = "*"
 websockets = "*"
 tabulate = "*"
 pandas = "*"
+protobuf_inspector = "*"
 
 [dev-packages]
