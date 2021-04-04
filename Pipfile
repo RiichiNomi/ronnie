@@ -11,5 +11,6 @@ websockets = "*"
 tabulate = "*"
 pandas = "*"
 protobuf_inspector = "*"
+pyyaml = "*"
 
 [dev-packages]

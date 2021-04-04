@@ -4,6 +4,7 @@ from itertools import islice, chain, repeat
 import math
 import os
 import random
+import yaml
 
 from discord.ext import commands
 from discord import Embed
@@ -70,16 +71,20 @@ class ContestManagerInterface(commands.Cog):
         if access_token is None:
             raise Exception("missing mahjong_soul_access_token in environment / config.env")
 
-        trusted_user_ids = [int(x) for x in os.environ.get('trusted_user_ids', '').split(',')]
-        self.trusted_user_ids = trusted_user_ids
-
         self.client = ContestManagerClient(lq_dhs, access_token)
         self.contest = None
+        config_file = os.environ.get('contests_configuration', 'contests.yaml')
+        if config_file is None or not os.path.exists(config_file):
+            raise Exception(f'please provide a contest configuration in {config_file}')
 
-        self.main_channel_id = os.environ.get('discord_channel_id')
-        if not self.main_channel_id:
-            raise Exception("missing discord_channel_id in environment / config.env")
-        self.main_channel_id = int(self.main_channel_id)
+        with open(config_file, 'r') as f:
+            config_raw = yaml.safe_load(f)
+
+        self.config = config_raw
+        self.contests = {contest['channel_id']: contest for contest in config_raw['contests']}
+
+        # Pick the first contest as the default one
+        self.main_channel_id = int(config_raw['contests'][0]['channel_id'])
 
         self.main_channel = None
         self.list_message = None
@@ -91,11 +96,7 @@ class ContestManagerInterface(commands.Cog):
         "Perform launch setup steps to allow usability right after restarting."
         await self.connect()
         await self.login()
-
-        # Attempt to manage the default contest, if specified in config
-        contest_id = int(os.environ.get('mahjong_soul_contest_id', '0'))
-        if contest_id:
-            await self.manage_contest(contest_id)
+        await self.manage_contest(self.contests[self.main_channel_id]['contest_id'])
 
     # Helpers for common tasks that can be either invoked by command or
     # automatically upon startup.
@@ -117,8 +118,9 @@ class ContestManagerInterface(commands.Cog):
         await self.client.subscribe('NotifyContestGameStart', self.on_NotifyContestGameStart)
         await self.client.subscribe('NotifyContestGameEnd', self.on_NotifyContestGameEnd)
 
-    async def is_admin(self, ctx):
-        if ctx.author.id not in self.trusted_user_ids:
+    async def is_admin(self, ctx, channel_id: None):
+        contest = self.contests[channel_id or ctx.channel.id]
+        if ctx.author.id not in contest['administrator_user_ids']:
             await ctx.send("Only administrators may use that command.")
             return False
         return True
@@ -140,6 +142,10 @@ class ContestManagerInterface(commands.Cog):
             await self.shuffle(reaction.message.channel, False)
         elif str(reaction.emoji) == REACTION_BOT:
             await self.shuffle(reaction.message.channel, True)
+
+    @commands.command(name='players', hidden=True)
+    async def command_players(self, ctx):
+
 
     @commands.command(name='rules')
     async def display_tournament_rules(self, ctx):
@@ -202,51 +208,6 @@ class ContestManagerInterface(commands.Cog):
             embed.add_field(name='Local Yaku', value=(rules.guyi_mode == 1))
 
         await ctx.send(embed=embed)
-
-    @commands.command(name='connect', hidden=True)
-    async def dhs_connect(self, ctx):
-        '''Test Doc
-
-        Second Line
-        '''
-        if ctx.channel.id != self.main_channel_id:
-            return
-
-        self.main_channel = ctx.channel
-
-        async with ctx.channel.typing():
-            if not await self.is_admin(ctx):
-                return
-
-            try:
-                await self.connect()
-            except Exception as e:
-                await ctx.send(f'Failed to connect to DHS: {e}')
-
-            await ctx.send(f'Connected to DHS.')
-
-    @commands.command(name='login', hidden=True)
-    async def dhs_login(self, ctx):
-        if ctx.channel.id != self.main_channel_id:
-            return
-
-        self.main_channel = ctx.channel
-
-        async with ctx.channel.typing():
-            if not await self.is_admin(ctx):
-                return
-
-            if not self.client.websocket or not self.client.websocket.open:
-                await self.dhs_connect(ctx)
-
-            try:
-                await self.login()
-            except Exception as e:
-                print(e)
-                await ctx.send('Unable to login.')
-                return
-
-            await ctx.send('Logged in to contest manager.')
 
     @commands.command(name='tournament', hidden=True)
     async def load_table(self, ctx, path:str = None):
@@ -491,29 +452,22 @@ class ContestManagerInterface(commands.Cog):
             await ctx.send(f'Game terminated for {nickname}')
 
     @commands.command(name='manage', hidden=True)
-    async def dhs_manage_contest(self, ctx, lobbyID:int):
-        if ctx.channel.id != self.main_channel_id:
+    async def dhs_manage_contest(self, ctx):
+        if not await self.is_admin(ctx, ctx.channel.id):
             return
+        elif ctx.channel.id not in self.contests:
+            await ctx.send('Unrecognized channel to manage a mahjong contest in.')
+        elif ctx.channel.id == self.main_channel_id:
+            await ctx.send('Already managing contest in this channel!')
+        else:
+            if self.list_message != None:
+                await self.list_message.delete()
+                self.list_message = None
 
-        self.main_channel = ctx.channel
-
-        async with ctx.channel.typing():
-            if not await self.is_admin(ctx):
-                return
-
-            if not self.client.websocket or not self.client.websocket.open:
-                await ctx.send('Client not connected.')
-                return
-
-            try:
-                await self.manage_contest(lobbyID)
-            except Exception as e:
-                print(e)
-                await ctx.send(f'Unable to manage {lobbyID}')
-                return
-
-            await ctx.send(f"Entered lobby management for lobby {lobbyID}.")
-
+            await self.manage_contest(self.contests[ctx.channel.id]['contest_id'])
+            self.main_channel_id = ctx.channel.id
+            self.main_channel = ctx.channel
+            await ctx.send('Now managing games in this channel!')
 
     @commands.command(name='casual')
     async def cmd_casual(self, ctx):
