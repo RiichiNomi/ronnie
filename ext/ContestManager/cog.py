@@ -143,10 +143,6 @@ class ContestManagerInterface(commands.Cog):
         elif str(reaction.emoji) == REACTION_BOT:
             await self.shuffle(reaction.message.channel, True)
 
-    @commands.command(name='players', hidden=True)
-    async def command_players(self, ctx):
-
-
     @commands.command(name='rules')
     async def display_tournament_rules(self, ctx):
         '''
