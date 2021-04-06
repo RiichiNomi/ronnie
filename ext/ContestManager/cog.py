@@ -615,7 +615,7 @@ class ContestManagerInterface(commands.Cog):
             if len(player_seat_lookup) == 4:
                 players = [(log.head.accounts[s].account_id, log.head.accounts[s].nickname) for s in seats]
                 TournamentScoreTracker = self.bot.get_cog('TournamentScoreTracker')
-                scores = await TournamentScoreTracker.record_game(players, points, rules)
+                scores = await TournamentScoreTracker.record_game(str(self.main_channel_id), players, points, rules)
 
                 response = f'Game concluded for {players[0][1]}({scores[0]}) | {players[1][1]}({scores[1]}) | {players[2][1]}({scores[2]}) | {players[3][1]}({scores[3]})'
             else:

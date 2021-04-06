@@ -8,8 +8,6 @@ from discord.ext import commands
 
 from tabulate import tabulate
 
-PICKLE_FILE = 'ext/ScoreTracker/score-sheets/SCORES.pickle'
-
 DISCORD_MAX_CHAR_LIMIT = 2000
 
 class TournamentScoreTracker(commands.Cog):
@@ -19,54 +17,47 @@ class TournamentScoreTracker(commands.Cog):
     index = 'account_id'
     def __init__(self, bot):
         self.bot = bot
-        self.players = None
 
-        self.dataframe_lock = asyncio.Lock()
+    def load(self, score_key):
+        name = self.pickle_file(score_key)
 
-        self.mostRecentMessage = None
-
-        self.initialize_database()
-
-    def initialize_database(self):
         try:
-            with open(PICKLE_FILE, 'rb') as f:
-                self.players = pickle.load(f)
+            with open(name, 'rb') as f:
+                data = pickle.load(f)
         except FileNotFoundError:
-            self.players = pd.DataFrame(columns=self.fields)
-            self.players.set_index(self.index, drop=True, inplace=True)
-            with open(PICKLE_FILE, 'wb') as f:
-                pickle.dump(self.players, f)
+            data = pd.DataFrame(columns=self.fields)
+            data.set_index(self.index, drop=True, inplace=True)
+            with open(name, 'wb') as f:
+                pickle.dump(data, f)
         except EOFError:
-            self.players = pd.DataFrame(columns=self.fields)
-            self.players.set_index(self.index, drop=True, inplace=True)
-        
+            data = pd.DataFrame(columns=self.fields)
+            data.set_index(self.index, drop=True, inplace=True)
+
         pd.set_option("display.unicode.east_asian_width", True)
-        
-    async def save(self):
-        with open(PICKLE_FILE, 'wb') as f:
-            pickle.dump(self.players, f)
-    
-    def exists(self, account_id):
-        return account_id in self.players.index
-            
-    async def register(self, account_id, majsoul_name):
-        async with self.dataframe_lock:
-            if not self.exists(account_id):
-                entry = [0 for x in range(0, len(self.fields)-1)]
+        return data
 
-                entry[0] = unicodedata.normalize('NFC', majsoul_name)
+    async def save(self, score_key, data):
+        with open(self.pickle_file(score_key), 'wb') as f:
+            pickle.dump(data, f)
 
-                self.players.loc[account_id] = entry
-    
-    async def record_game(self, players, points, rules, round_mode='round'):
+    def exists(self, data, account_id):
+        return account_id in data.index
+
+    async def register(self, data, account_id, majsoul_name):
+        if not self.exists(data, account_id):
+            entry = [0 for x in range(0, len(self.fields)-1)]
+            entry[0] = unicodedata.normalize('NFC', majsoul_name)
+            data.loc[account_id] = entry
+
+    async def record_game(self, score_key, players, points, rules, round_mode='round'):
         '''
         Input:
-            players - list of tuples (ID, name) where ID is the player's majsoul id 
+            players - list of tuples (ID, name) where ID is the player's majsoul id
                 and name is their majsoul handle
-            
+
             points - list of integers
 
-            Assumes that the points are ordered from 1st place to 4th place and that 
+            Assumes that the points are ordered from 1st place to 4th place and that
             the order of the players in the list matches the order of the points
         '''
 
@@ -82,39 +73,38 @@ class TournamentScoreTracker(commands.Cog):
 
         if round_mode == 'round':
             scores = [round(p, 1) for p in scores]
-        
+
         if round_mode == 'ceil' or round_mode == 'ceiling':
             scores = [math.ceil(p*10)/10 for p in scores]
-        
+
         if round_mode == 'floor':
             scores = [math.floor(p*10)/10 for p in scores]
-    
+
+        data = self.load(score_key)
         position = 1
         for account_id, majsoul_name in players:
-            if not self.exists(account_id):
-                await self.register(account_id, majsoul_name)
-            
-            async with self.dataframe_lock:
-                self.players['Majsoul Name'][account_id] = unicodedata.normalize('NFC', majsoul_name)
-                
-                pts = scores[position-1]
+            if not self.exists(data, account_id):
+                await self.register(data, account_id, majsoul_name)
 
-                self.players['Total Score'][account_id] += pts
-                self.players['Matches Played'][account_id] += 1
-                self.players['Average Score'][account_id] = self.players['Total Score'][account_id] / self.players['Matches Played'][account_id]
+            data['Majsoul Name'][account_id] = unicodedata.normalize('NFC', majsoul_name)
 
-                self.players[str(position)][account_id] += 1
+            pts = scores[position-1]
 
-                rank_sum = 1*self.players['1'][account_id] + 2*self.players['2'][account_id] + 3*self.players['3'][account_id] + 4*self.players['4'][account_id]
-                
-                #self.players['Avg Pos'][account_id] = rank_sum / self.players['Matches Played'][account_id]
+            data['Total Score'][account_id] += pts
+            data['Matches Played'][account_id] += 1
+            data['Average Score'][account_id] = data['Total Score'][account_id] / data['Matches Played'][account_id]
 
-                position += 1
-        
-        await self.save()
-        
+            data[str(position)][account_id] += 1
+
+            rank_sum = 1*data['1'][account_id] + 2*data['2'][account_id] + 3*data['3'][account_id] + 4*data['4'][account_id]
+
+            #data['Avg Pos'][account_id] = rank_sum / data['Matches Played'][account_id]
+
+            position += 1
+
+        await self.save(score_key, data)
         return scores
-    
+
     async def convert_to_string(self, df):
         table = df.reset_index(drop=True)
 
@@ -126,7 +116,7 @@ class TournamentScoreTracker(commands.Cog):
         response = f'```{tabulate(table, headers=self.display_fields, floatfmt=".1f")}```'
 
         return response
-    
+
     async def convert_to_multiple_strings(self, df):
         table = df.reset_index(drop=True)
 
@@ -146,19 +136,13 @@ class TournamentScoreTracker(commands.Cog):
                     index = round(len(t)/2)
                     temp_list.append(t[0:index])
                     temp_list.append(t[index:])
-                
+
                 table_list = temp_list
             else:
                 break
 
         return [f'```{tabulate(table, headers=self.display_fields, floatfmt=".1f")}```' for table in table_list]
-    
-    async def update_message(self, df):
-        response = await self.convert_to_string(df)
 
-        if self.mostRecentMessage != None:
-            await self.mostRecentMessage.edit(content=response)
-    
     @commands.command(name='scores', aliases=['score'])
     async def display_table(self, ctx):
         """
@@ -169,17 +153,24 @@ class TournamentScoreTracker(commands.Cog):
         Displays a score table that automatically updates with the latest scores whenever a Majsoul game in the tournament lobby concludes.
         """
 
-        scores = await self.convert_to_multiple_strings(self.players)
+        data = self.load(str(ctx.channel.id))
+        scores = await self.convert_to_multiple_strings(data)
 
         for s in scores:
-            print(len(s))
             await ctx.send(s)
-    
+
     @commands.command(name='record-game', hidden=True)
     async def command_record_game(self, ctx, uuid):
         MajsoulClientInterface = self.bot.get_cog('MajsoulClientInterface')
 
+        # XXX(joshk): You have to record the game of the tournament you're currently managing
+        ContestManager = self.bot.get_cog('ContestManagerInterface')
+
         log = await MajsoulClientInterface.client.fetch_game_log(uuid)
+
+        # retrieving rules useful for score tracking
+        res = await ContestManager.client.call('fetchContestGameRule')
+        rules = res.game_rule_setting
 
         points = [player.part_point_1 for player in log.head.result.players]
 
@@ -187,13 +178,13 @@ class TournamentScoreTracker(commands.Cog):
 
         players = [(log.head.accounts[s].account_id, log.head.accounts[s].nickname) for s in seats]
 
-        await self.record_game(players, points)
+        await self.record_game(str(ctx.channel.id), players, points, rules)
 
         await ctx.send(f'Game {uuid} recorded.')
-    
-    @commands.command(name='subtract', hidden=True)
-    async def command_remove_points(self, ctx, points:float):
-        self.players['Total Score'] -= points
+
+    @staticmethod
+    def pickle_file(channel_id):
+        return f'ext/ScoreTracker/score-sheets/{channel_id}.pickle'
 
 def setup(bot):
     bot.add_cog(TournamentScoreTracker(bot))
