@@ -69,7 +69,7 @@ class TournamentScoreTracker(commands.Cog):
             game_rule.shunweima_2, game_rule.shunweima_3, game_rule.shunweima_4
         ]
 
-        scores = ScoreCalculator.calculate_scores(points, game_rule.init_point, game_rule.fandian, uma)
+        scores = ScoreCalculator.calculate_scores(points, game_rule.init_point, game_rule.jingsuanyuandian, uma)
 
         if round_mode == 'round':
             scores = [round(p, 1) for p in scores]
