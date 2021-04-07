@@ -118,7 +118,7 @@ class ContestManagerInterface(commands.Cog):
         await self.client.subscribe('NotifyContestGameStart', self.on_NotifyContestGameStart)
         await self.client.subscribe('NotifyContestGameEnd', self.on_NotifyContestGameEnd)
 
-    async def is_admin(self, ctx, channel_id: None):
+    async def is_admin(self, ctx, channel_id = None):
         contest = self.contests[channel_id or ctx.channel.id]
         if ctx.author.id not in contest['administrator_user_ids']:
             await ctx.send("Only administrators may use that command.")
@@ -136,7 +136,10 @@ class ContestManagerInterface(commands.Cog):
         if reaction.message.id != self.list_message.id:
             return
 
-        await reaction.remove(user)
+        try:
+            await reaction.remove(user)
+        except:
+            print(f"Couldn't remove reaction for {user.name}")
 
         if str(reaction.emoji) == REACTION_HUMAN:
             await self.shuffle(reaction.message.channel, False)

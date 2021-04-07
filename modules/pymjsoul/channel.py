@@ -44,6 +44,7 @@ class MajsoulChannel():
         self._subscriptions = {}
         self._subscriptions_lock = asyncio.Lock()
 
+        self.MostRecentNotify = None
         self.Notifications = asyncio.Queue()
         self.log_messages = log_messages
 
@@ -107,11 +108,15 @@ class MajsoulChannel():
                 msg = msgClass()
                 msg.ParseFromString(data)
 
-                print("Notification received.")
-                print(name)
-                print(msg)
+                # Duplicate notifications can be received next to each other.
+                # Never process the same message twice.
+                if (name, msg) != self.MostRecentNotify:
+                    print("Notification received.")
+                    print(name)
+                    print(msg)
+                    self.MostRecentNotify = (name, msg)
 
-                await self.Notifications.put((name, msg))
+                    await self.Notifications.put((name, msg))
             elif msgType == MSG_TYPE_RESPONSE:
                 print("Response received.")
                 msgIndex = int.from_bytes(message[1:3], 'little')
