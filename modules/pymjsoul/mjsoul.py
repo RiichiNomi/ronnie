@@ -51,7 +51,7 @@ async def get_recommended_servers():
         response = await session.get(url)
         response = await response.json()    
 
-        serversURL = response['ip'][0]['region_urls'][0] + '?service=ws-gateway&protocol=ws&ssl=true'
+        serversURL = response['ip'][0]['region_urls'][0]['url'] + '?service=ws-gateway&protocol=ws&ssl=true'
 
         #get the list of recommended servers
         print(('Retrieving recommended servers...'))
@@ -74,7 +74,7 @@ async def check_server_maintenance(self):
         response = await session.get(url)
         response = await response.json()    
 
-        serversURL = response['ip'][0]['region_urls'][0] + '?service=ws-gateway&protocol=ws&ssl=true'
+        serversURL = response['ip'][0]['region_urls'][0]['url'] + '?service=ws-gateway&protocol=ws&ssl=true'
 
         response = await session.get(serversURL)
         response = await response.json()
