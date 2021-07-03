@@ -315,6 +315,15 @@ class ContestManagerInterface(commands.Cog):
                     return
 
                 rules.detail_rule_v2.game_rule.guyi_mode = mapped
+            elif rule == 'aka':
+                mapping = {'nashi': 0, 'off': 0, 'ari': 3, '3': 3, '4': 4}
+                mapped = mapping.get(value, 'MISSING')
+
+                if mapped == 'MISSING':
+                    await ctx.send(f'Invalid value for {rule}. Valid: {", ".join(mapping.keys())}')
+                    return
+
+                rules.dora_count = mapped
             else:
                 await ctx.send(f'Unrecognized rule to set. Valid: gametype, turntime')
                 return
