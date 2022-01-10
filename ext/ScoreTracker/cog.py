@@ -159,29 +159,6 @@ class TournamentScoreTracker(commands.Cog):
         for s in scores:
             await ctx.send(s)
 
-    @commands.command(name='record-game', hidden=True)
-    async def command_record_game(self, ctx, uuid):
-        MajsoulClientInterface = self.bot.get_cog('MajsoulClientInterface')
-
-        # XXX(joshk): You have to record the game of the tournament you're currently managing
-        ContestManager = self.bot.get_cog('ContestManagerInterface')
-
-        log = await MajsoulClientInterface.client.fetch_game_log(uuid)
-
-        # retrieving rules useful for score tracking
-        res = await ContestManager.client.call('fetchContestGameRule')
-        rules = res.game_rule_setting
-
-        points = [player.part_point_1 for player in log.head.result.players]
-
-        seats = [player.seat for player in log.head.result.players]
-
-        players = [(log.head.accounts[s].account_id, log.head.accounts[s].nickname) for s in seats]
-
-        await self.record_game(str(ctx.channel.id), players, points, rules)
-
-        await ctx.send(f'Game {uuid} recorded.')
-
     @staticmethod
     def pickle_file(channel_id):
         return f'ext/ScoreTracker/score-sheets/{channel_id}.pickle'

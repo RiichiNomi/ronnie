@@ -120,6 +120,7 @@ class ContestManagerClient(MajsoulChannel):
             open_live=True,
             ai_level=2
         )
+        return res.game_uuid
     
     async def create_random_games(self):
         res = await self.call('startManageGame')

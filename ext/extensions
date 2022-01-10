@@ -1,6 +1,5 @@
 ext.ContestManager.cog
 ext.ScoreTracker.cog
-ext.MajsoulClient.cog
 ext.ScoreCalculator.cog
 ext.PlayerNicknames.cog
 ext.HelpInterface.cog

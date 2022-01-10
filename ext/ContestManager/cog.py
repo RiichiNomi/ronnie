@@ -82,12 +82,14 @@ class ContestManagerInterface(commands.Cog):
 
         self.config = config_raw
         self.contests = {contest['channel_id']: contest for contest in config_raw['contests']}
+        self.active_games = {}
 
         # Pick the first contest as the default one
         self.main_channel_id = int(config_raw['contests'][0]['channel_id'])
 
         self.main_channel = None
         self.list_message = None
+        self.rules = None
 
         self._started_event = None
         self._create_game_lock = asyncio.Lock()
@@ -103,6 +105,10 @@ class ContestManagerInterface(commands.Cog):
     async def manage_contest(self, contest_id):
         res = await self.client.call('manageContest', unique_id=contest_id)
         self.contest = res.contest
+
+        # retrieving rules useful for score tracking
+        res = await self.client.call('fetchContestGameRule')
+        self.rules = res.game_rule_setting
 
     async def connect(self):
         servers = await mjsoul.get_contest_management_servers()
@@ -178,9 +184,14 @@ class ContestManagerInterface(commands.Cog):
             rules = res.game_rule_setting.detail_rule_v2.game_rule
             #Starting Points
             embed.add_field(name='Starting Points', value=rules.init_point)
-            #Uma Calculation
-            shunweima_1 = (int)(-1*(rules.shunweima_2 + rules.shunweima_3 + rules.shunweima_4))
-            embed.add_field(name='Uma', value=f'{shunweima_1}/{rules.shunweima_2}/{rules.shunweima_3}/{rules.shunweima_4}')
+            if is_sanma(res.game_rule_setting.round_type):
+                #Uma Calculation
+                shunweima_1 = (int)(-1*(rules.shunweima_2 + rules.shunweima_3))
+                embed.add_field(name='Uma', value=f'{shunweima_1}/{rules.shunweima_2}/{rules.shunweima_3}')
+            else:
+                #Uma Calculation
+                shunweima_1 = (int)(-1*(rules.shunweima_2 + rules.shunweima_3 + rules.shunweima_4))
+                embed.add_field(name='Uma', value=f'{shunweima_1}/{rules.shunweima_2}/{rules.shunweima_3}/{rules.shunweima_4}')
             #Agari Yame
             embed.add_field(name='Agari Yame', value=rules.have_helezhongju)
             #Busting On
@@ -298,7 +309,7 @@ class ContestManagerInterface(commands.Cog):
 
                 rules.thinking_type = mapped
             elif rule == 'gametype':
-                mapping = {'east': 1, 'south': 2, 'single': 4}
+                mapping = {'4east': 1, '4south': 2, '4single': 4, '3east': 11, '3south': 12 }
                 mapped = mapping.get(value)
 
                 if not mapped:
@@ -333,6 +344,7 @@ class ContestManagerInterface(commands.Cog):
             await ctx.send(f'Rules updated!')
 
             # Show the new rules
+            self.rules = res.game_rule_setting
             await self.display_tournament_rules(ctx)
 
     @commands.command(name='pause')
@@ -357,8 +369,8 @@ class ContestManagerInterface(commands.Cog):
                 PlayerNicknamesCog = self.bot.get_cog('PlayerNicknames')
                 p = PlayerNicknamesCog.players
 
-                if ctx.author.id not in p['discord_id'].values or p['mahjsoul_name'][ctx.author.id] != None:
-                    nickname = p['mahjsoul_name'][ctx.author.id]
+                if ctx.author.id in p:
+                    nickname = p['majsoul_name']
                 else:
                     await ctx.send(f'No Mahjsoul name registered for {ctx.author.mention}. Type ms/mahjsoul-name <your-mahjsoul-name> to register.')
                     return
@@ -561,20 +573,26 @@ class ContestManagerInterface(commands.Cog):
         # This no-op list comprehension turns a special protobuf field type into a list.
         players = [p for p in await self.client.active_players]
 
+        # table size depends on the game setting
+        if is_sanma(self.rules.round_type):
+            table_size = 3
+        else:
+            table_size = 4
+
         if withBots:
             # Get number of partial tables (e.g. 1.25 tables with 5 players),
             # round that up to the next integer number of tables. Multiply
             # by players per table. subtract players.
             # if len(players) % 4 == 0, remainder should be 0
-            remainder = math.ceil(len(players) / 4.0) * 4 - len(players)
+            remainder = math.ceil(len(players) / (table_size*1.0)) * table_size - len(players)
             for _ in range(remainder):
                 players.append(AI())
 
         random.shuffle(players)
-        tables = chunk(players, 4)
+        tables = chunk(players, table_size)
 
         for table in tables:
-            if len(table) == 4:
+            if len(table) == table_size:
                 await self.create_game_helper(discord_channel, table)
 
         await self.refresh_message()
@@ -589,10 +607,11 @@ class ContestManagerInterface(commands.Cog):
             self._started_event = asyncio.Event()
 
             id_table = [p.account_id for p in table]
-            await self.client.create_game(id_table)
+            game_uuid = await self.client.create_game(id_table)
             await self._started_event.wait()
 
-            await discord_channel.send(f"Game starting for {table[0].nickname} | {table[1].nickname} | {table[2].nickname} | {table[3].nickname}")
+            nicknames = ' | '.join([p.nickname for p in table])
+            await discord_channel.send(f"Game starting for {nicknames}")
 
     @commands.command(name='shuffle')
     async def dhs_create_random_games(self, ctx):
@@ -606,41 +625,36 @@ class ContestManagerInterface(commands.Cog):
         async with ctx.channel.typing():
             await self.shuffle(ctx.channel)
 
+    async def locate_completed_game(self, game_uuid):
+        res = await self.client.call('fetchContestGameRecords')
+        for item in res.record_list:
+            if item.record.uuid == game_uuid:
+                return item.record
+        return None
+
     async def on_NotifyContestGameEnd(self, _, msg):
-        uuid = msg.game_uuid
+        record = await self.locate_completed_game(msg.game_uuid)
+        response = None
 
-        MajsoulClientInterface = self.bot.get_cog('MajsoulClientInterface')
+        if record:
+            player_seat_lookup = {a.seat: (a.account_id, a.nickname) for a in record.accounts}
 
-        # retrieving rules useful for score tracking
-        res = await self.client.call('fetchContestGameRule')
-        rules = res.game_rule_setting
+            player_scores_rendered = [
+                f'{player_seat_lookup.get(p.seat, (0, "Computer"))[1]}({p.part_point_1})'
+                for p in record.result.players]
+            response = f'Game concluded for {" | ".join(player_scores_rendered)}'
 
-        try:
-            log = await MajsoulClientInterface.client.fetch_game_log(uuid)
+        if msg.game_uuid in self.active_games:
+            nicknames = self.active_games[msg.game_uuid]
+            del self.active_games[msg.game_uuid]
 
-            # We get here only if it worked.
-            seats = [player.seat for player in log.head.result.players]
-            points = [player.part_point_1 for player in log.head.result.players]
-            player_seat_lookup = {a.seat: (a.account_id, a.nickname) for a in log.head.accounts}
+            # In case we couldn't obtain scoring information.
+            if not response:
+                response = f'Game concluded for {nicknames}'
+        elif not record:
+            response = f'An unknown game concluded: {msg.game_uuid}'
 
-            # If AIs are being used, this will not be of size 4
-            if len(player_seat_lookup) == 4:
-                players = [(log.head.accounts[s].account_id, log.head.accounts[s].nickname) for s in seats]
-                TournamentScoreTracker = self.bot.get_cog('TournamentScoreTracker')
-                scores = await TournamentScoreTracker.record_game(str(self.main_channel_id), players, points, rules)
-
-                response = f'Game concluded for {players[0][1]}({scores[0]}) | {players[1][1]}({scores[1]}) | {players[2][1]}({scores[2]}) | {players[3][1]}({scores[3]})'
-            else:
-                # Don't show tournament style scores
-                player_scores_rendered = [
-                    f'{player_seat_lookup.get(p.seat, (0, "Computer"))[1]}({p.part_point_1})'
-                    for p in log.head.result.players]
-                response = f'Game concluded for {" | ".join(player_scores_rendered)}'
-
-            await self.main_channel.send(response)
-
-        except GeneralMajsoulError as e:
-            print(f'NotifyContestGameEnd but could not retrieve log ({e}). Skipping score recording.')
+        await self.main_channel.send(response)
 
         if self.list_message != None:
             await self.refresh_message()
@@ -649,6 +663,9 @@ class ContestManagerInterface(commands.Cog):
         if not self._started_event:
             print(f'NotifyContestGameStart received but not waiting for a game!')
             return
+
+        nicknames = ' | '.join([p.nickname for p in msg.game_info.players])
+        self.active_games[msg.game_info.game_uuid] = nicknames
 
         self._started_event.set()
         self._started_event = None
@@ -764,6 +781,9 @@ def chunk_pad(it, size, padval=None):
 def chunk(it, size):
     it = iter(it)
     return iter(lambda: tuple(islice(it, size)), ())
+
+def is_sanma(round_type):
+    return round_type in [11, 12, 13, 14]
 
 if __name__ == "__main__":
     server = asyncio.run(mjsoul.get_contest_management_servers())[0]
