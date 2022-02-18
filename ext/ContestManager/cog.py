@@ -5,6 +5,8 @@ import math
 import os
 import random
 import yaml
+import csv
+import requests
 
 from discord.ext import commands
 from discord import Embed
@@ -192,6 +194,8 @@ class ContestManagerInterface(commands.Cog):
                 #Uma Calculation
                 shunweima_1 = (int)(-1*(rules.shunweima_2 + rules.shunweima_3 + rules.shunweima_4))
                 embed.add_field(name='Uma', value=f'{shunweima_1}/{rules.shunweima_2}/{rules.shunweima_3}/{rules.shunweima_4}')
+            #Kuitan
+            embed.add_field(name='Open Tanyao', value=rules.shiduan)
             #Agari Yame
             embed.add_field(name='Agari Yame', value=rules.have_helezhongju)
             #Busting On
@@ -246,13 +250,19 @@ class ContestManagerInterface(commands.Cog):
                 return
 
             # We can make sure all CSV players are registered in the tournament lobby.
-            registered = {p.nickname for p in await self.client.contest_players}
+            # registered = {p.nickname for p in await self.client.contest_players}
+
+            # table size depends on the game setting
+            if is_sanma(self.rules.round_type):
+                table_size = 3
+            else:
+                table_size = 4
 
             self.layout = []
-            with open(base) as csvfile:
+            with open(os.path.join('brackets', base)) as csvfile:
                 c = csv.reader(csvfile)
                 for row in c:
-                    if len(row) != 4:
+                    if len(row) != table_size:
                         await ctx.send(f"Invalid row (not 4 players): {row}")
                         return
 
@@ -260,11 +270,10 @@ class ContestManagerInterface(commands.Cog):
                         if person == "":
                             await ctx.send(f"Invalid player in row: {row}")
                             return
-                        elif person not in registered:
-                            await ctx.send(f"Player is not registered with tournament lobby: {person}")
-                            return
+                        # elif person not in registered:
+                        #    await ctx.send(f"Player is not registered with tournament lobby: {person}")
+                        #    return
 
-                    # TODO(joshk): Check the nickname is valid against the lobby whitelist
                     self.layout.append(row)
 
             await ctx.send(f"Tournament mode enabled with {len(self.layout)} tables!")
@@ -560,7 +569,7 @@ class ContestManagerInterface(commands.Cog):
         # Allow the use of bots
         player_lookup[''] = 0
 
-        if layout_set not in queued_player_set:
+        if layout_set != queued_player_set:
             await discord_channel.send(f"Can't start without these players: {', '.join(list(layout_set - queued_player_set))}")
             return
 
@@ -613,6 +622,38 @@ class ContestManagerInterface(commands.Cog):
             nicknames = ' | '.join([p.nickname for p in table])
             await discord_channel.send(f"Game starting for {nicknames}")
 
+    @commands.command(name='positivity')
+    async def dhs_XXX_positivity(self, ctx):
+        r = requests.get('https://raw.githubusercontent.com/nychealth/coronavirus-data/master/latest/now-tests.csv')
+        reader = csv.reader(r.text.splitlines())
+        next(reader) # skip headers
+
+        prev_date = None
+        prev_date_positivity = None
+        curr_date = None
+        curr_date_positivity = None
+
+        for row in reader:
+            if curr_date is not None:
+                prev_date = curr_date
+                prev_date_positivity = curr_date_positivity
+
+            curr_date = row[0]
+            curr_date_positivity = float(row[6]) * 100
+
+        if curr_date:
+            diff_positivity = curr_date_positivity - prev_date_positivity
+            if diff_positivity > 0:
+                trailer = "Brr... things are getting worse."
+            elif diff_positivity == 0:
+                trailer = "No change."
+            else:
+                trailer = "Woo, getting better!"
+
+            await ctx.send(f"The NYC 7-day average positivity rate as of {curr_date} is {curr_date_positivity:.2f}%. The last reported 7-day average on {prev_date} was {prev_date_positivity:.2f}%, representing a change of {diff_positivity:.2f}%. {trailer}")
+        else:
+            await ctx.send("Unable to detect positivity rates in this result. Try again later.")
+
     @commands.command(name='shuffle')
     async def dhs_create_random_games(self, ctx):
         '''Starts randomly matched games.
@@ -633,6 +674,9 @@ class ContestManagerInterface(commands.Cog):
         return None
 
     async def on_NotifyContestGameEnd(self, _, msg):
+        # It takes some time for the results to register into the log
+        await asyncio.sleep(5)
+
         record = await self.locate_completed_game(msg.game_uuid)
         response = None
 
@@ -643,6 +687,9 @@ class ContestManagerInterface(commands.Cog):
                 f'{player_seat_lookup.get(p.seat, (0, "Computer"))[1]}({p.part_point_1})'
                 for p in record.result.players]
             response = f'Game concluded for {" | ".join(player_scores_rendered)}'
+
+            ScoreTrackerCog = self.bot.get_cog('TournamentScoreTracker')
+            await ScoreTrackerCog.record_multiple_games([record])
 
         if msg.game_uuid in self.active_games:
             nicknames = self.active_games[msg.game_uuid]
@@ -708,7 +755,10 @@ class ContestManagerInterface(commands.Cog):
             content = self.render_lobby_output_casual(games, queued)
 
         content += f'{REACTION_HUMAN} Click the die to start games with humans only.\n'
-        content += f'{REACTION_BOT} Click the robot to start games with humans and AI.\n'
+
+        # Can't use bots in Tournament Mode
+        if not self.layout:
+            content += f'{REACTION_BOT} Click the robot to start games with humans and AI.\n'
 
         return content
 

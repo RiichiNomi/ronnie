@@ -1,0 +1,28 @@
+contests:
+  # Josh's Pon Parlor [Dev]
+  #- contest_id: 5800
+  #  channel_id: 813135165819715635
+  #  administrator_user_ids:
+  #    - 710669639620886598 # JustKidding
+  # Riichi Nomi NYC
+  - contest_id: 2861
+    channel_id: 685471499691229269 # #online-meetups
+    administrator_user_ids:
+      - 710669639620886598 # JustKidding
+      - 225048943350775808 # thursday
+      - 156631484642492416 # f.zs
+      - 210216890771963907 # StockSoul
+  # Josh's Pon Parlor [Prod]
+  - contest_id: 7541
+    channel_id: 744909223770587167 # #mahjong
+    administrator_user_ids:
+  - contest_id: 7494
+    #channel_id: 685471499691229269 # #online-meetups
+    #channel_id: 813135165819715635 # #mahjong-dev
+    #channel_id: 710244839928758364 # #mod-only
+    channel_id: 685471574018490399 # #tournaments-events
+    administrator_user_ids:
+      - 710669639620886598 # JustKidding
+      - 225048943350775808 # thursday
+      - 210216890771963907 # StockSoul
+      - 710669639620886598 # JustKidding

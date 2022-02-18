@@ -1,0 +1,9 @@
+contests:
+  # Internal number of the contest you want to manage - look at the end of DHS URL when managing your contest in-browser
+  - contest_id: 4993
+    # Channel ID to accept commands in (right click Copy ID)
+    channel_id: 813135165819715635
+    # List of administrator user IDs (right click Copy ID)
+    administrator_user_ids:
+      - 710669639620886598 # JustKidding
+  # Repeat as many times for as many contests and channels you want to combine

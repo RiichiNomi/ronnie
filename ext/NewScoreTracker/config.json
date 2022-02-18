@@ -1,0 +1,28 @@
+{
+    "use_custom_uma": false,
+    "use_floating_uma": false,
+    "custom_uma": [
+        15,
+        5,
+        -5,
+        -15
+    ],
+    "floating_uma_one": [
+        12,
+        -1,
+        -3,
+        -8
+    ],
+    "floating_uma_two": [
+        8,
+        4,
+        -4,
+        -8
+    ],
+    "floating_uma_three": [
+        8,
+        3,
+        1,
+        -12
+    ]
+}
