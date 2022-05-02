@@ -12,5 +12,6 @@ tabulate = "*"
 pandas = "*"
 protobuf_inspector = "*"
 pyyaml = "*"
+requests = "*"
 
 [dev-packages]

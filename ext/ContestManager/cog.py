@@ -1,6 +1,7 @@
 import asyncio
 import csv
 from itertools import islice, chain, repeat
+import json
 import math
 import os
 import random
@@ -195,7 +196,8 @@ class ContestManagerInterface(commands.Cog):
                 shunweima_1 = (int)(-1*(rules.shunweima_2 + rules.shunweima_3 + rules.shunweima_4))
                 embed.add_field(name='Uma', value=f'{shunweima_1}/{rules.shunweima_2}/{rules.shunweima_3}/{rules.shunweima_4}')
             #Kuitan
-            embed.add_field(name='Open Tanyao', value=rules.shiduan)
+            if not is_sanma(res.game_rule_setting.round_type):
+                embed.add_field(name='Open Tanyao', value=rules.shiduan)
             #Agari Yame
             embed.add_field(name='Agari Yame', value=rules.have_helezhongju)
             #Busting On
@@ -278,6 +280,32 @@ class ContestManagerInterface(commands.Cog):
 
             await ctx.send(f"Tournament mode enabled with {len(self.layout)} tables!")
             await self.dhs_show_active_players(ctx)
+
+    @commands.command(name='register')
+    async def register(self, ctx, friend_id:int):
+        '''
+        Registers the user in the associated channel's lobby. Pass in a friend ID
+
+        Usage: `ms/register <friend_id>`
+        '''
+        if ctx.channel.id != self.main_channel_id:
+            return
+
+        self.main_channel = ctx.channel
+
+        async with ctx.channel.typing():
+            res = await self.client.call('searchAccountByEid', eids=[friend_id])
+
+            # it's a success if we get here
+            nickname = res.search_result[0].nickname
+            account_id = res.search_result[0].account_id
+
+            res = await self.client.call('updateContestPlayer',
+                    setting_type=2, # add a player ignoring whats already there
+                    nicknames=[nickname],
+                    account_ids=[account_id])
+
+            await ctx.send(f'Registered player into lobby: {nickname}')
 
     @commands.command(name='setrule')
     async def set_rule(self, ctx, rule:str = None, value:str = None):
