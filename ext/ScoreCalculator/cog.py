@@ -5,8 +5,19 @@ class ScoreCalculator(commands.Cog):
         self.bot = bot
     
     def calculate_scores(self, raw_scores, starting_score, target_score, uma):
-        oka = ((target_score - starting_score) * 4) / 1000
+        players = len(raw_scores)
+        if players == 4:
+            return self.calculate_yonma_scores(raw_scores, starting_score, target_score, uma)
+        elif players == 3:
+            return self.calculate_sanma_scores(raw_scores, starting_score, target_score, uma)
 
+    def calculate_sanma_scores(self, raw_scores, starting_score, target_score, uma):
+        # XXX: No support for split uma
+        raw_scores = [(score - target_score) / 1000 for score in raw_scores]
+        return [raw_scores[i] + uma[i] for i in range(len(raw_scores))]
+
+    def calculate_yonma_scores(self, raw_scores, starting_score, target_score, uma):
+        oka = ((target_score - starting_score) * 4) / 1000
         raw_scores = [(score - target_score) / 1000 for score in raw_scores]
 
         '''

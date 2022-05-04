@@ -53,12 +53,16 @@ class TournamentScoreTracker(commands.Cog):
                           field_matches_played, field_first, field_second, field_third, field_fourth]
     score_table_index = 'Majsoul Name'
 
-    player_name_fields = ['1st', '2nd', '3rd', '4th']
-    player_point_fields = ['Points 1', 'Points 2', 'Points 3', 'Points 4']
+    yonma_player_name_fields = ['1st', '2nd', '3rd', '4th']
+    yonma_player_point_fields = ['Points 1', 'Points 2', 'Points 3', 'Points 4']
+    
+    sanma_player_name_fields = ['1st', '2nd', '3rd']
+    sanma_player_point_fields = ['Points 1', 'Points 2', 'Points 3']
 
     field_game_end_time = 'End Time'
     game_record_index = 'uuid'
-    game_record_fields = [game_record_index, field_game_end_time, *player_name_fields, *player_point_fields]\
+    yonma_game_record_fields = [game_record_index, field_game_end_time, *yonma_player_name_fields, *yonma_player_point_fields]
+    sanma_game_record_fields = [game_record_index, field_game_end_time, *sanma_player_name_fields, *sanma_player_point_fields]
 
     json_config = None
 
@@ -68,7 +72,8 @@ class TournamentScoreTracker(commands.Cog):
 
         self.bot = bot
 
-        self.GAME_RECORDS = None
+        self.SANMA_GAME_RECORDS = None
+        self.YONMA_GAME_RECORDS = None
         self.game_records_lock = asyncio.Lock()
         self.game_records_filename = None
 
@@ -79,13 +84,25 @@ class TournamentScoreTracker(commands.Cog):
         self.initialize_dataframe()
 
     def initialize_dataframe(self):
-        self.GAME_RECORDS = pd.DataFrame(columns=self.game_record_fields)
-        self.GAME_RECORDS = self.GAME_RECORDS.set_index(
+        self.SANMA_GAME_RECORDS = pd.DataFrame(columns=self.sanma_game_record_fields)
+        self.SANMA_GAME_RECORDS = self.SANMA_GAME_RECORDS.set_index(
+            self.game_record_index, drop=False)
+        pd.set_option("display.unicode.east_asian_width", True)
+        
+        self.YONMA_GAME_RECORDS = pd.DataFrame(columns=self.yonma_game_record_fields)
+        self.YONMA_GAME_RECORDS = self.YONMA_GAME_RECORDS.set_index(
             self.game_record_index, drop=False)
         pd.set_option("display.unicode.east_asian_width", True)
 
     async def record_game(self, log):
-        if log.uuid in self.GAME_RECORDS.index:
+        if is_sanma(log.config.mode.mode):
+            records = self.SANMA_GAME_RECORDS
+            fields = self.sanma_game_record_fields
+        else:
+            records = self.YONMA_GAME_RECORDS
+            fields = self.yonma_game_record_fields
+
+        if log.uuid in records.index:
             print(f'Game {log.uuid} already recorded.')
             return
 
@@ -96,11 +113,14 @@ class TournamentScoreTracker(commands.Cog):
 
         entry = [log.uuid, log.end_time, *players, *points]
 
-        game = pd.DataFrame(entry, columns=self.game_record_fields)
+        game = pd.DataFrame(entry, columns=fields)
         game = game.set_index(self.game_record_index, drop=False)
 
         async with self.game_records_lock:
-            self.GAME_RECORDS = self.GAME_RECORDS.append(game)
+            if is_sanma(log.config.mode.mode):
+                self.SANMA_GAME_RECORDS = self.SANMA_GAME_RECORDS.append(game)
+            else:
+                self.YONMA_GAME_RECORDS = self.YONMA_GAME_RECORDS.append(game)
 
         print(f"Recorded game {log.uuid}")
 
@@ -110,7 +130,14 @@ class TournamentScoreTracker(commands.Cog):
 
         entries = []
         for game_log in logs:
-            if game_log.uuid in self.GAME_RECORDS.index:
+            if is_sanma(game_log.config.mode.mode):
+                records = self.SANMA_GAME_RECORDS
+                fields = self.sanma_game_record_fields
+            else:
+                records = self.YONMA_GAME_RECORDS
+                fields = self.yonma_game_record_fields
+
+            if game_log.uuid in records.index:
                 print(f'Game {game_log.uuid} already recorded.')
                 return
 
@@ -121,13 +148,16 @@ class TournamentScoreTracker(commands.Cog):
             entries.append(
                 [game_log.uuid, game_log.end_time, *players, *points])
 
-        games = pd.DataFrame(entries, columns=self.game_record_fields)
+        games = pd.DataFrame(entries, columns=fields)
         games = games.set_index(self.game_record_index, drop=False)
 
         async with self.game_records_lock:
-            self.GAME_RECORDS = self.GAME_RECORDS.append(games)
+            if is_sanma(game_log.config.mode.mode):
+                self.SANMA_GAME_RECORDS = self.SANMA_GAME_RECORDS.append(games)
+            else:
+                self.YONMA_GAME_RECORDS = self.YONMA_GAME_RECORDS.append(games)
 
-    async def create_score_table(self, starting_points, return_points, uma):
+    async def create_score_table(self, starting_points, return_points, uma, sanma=False):
         '''
         Processes all the stored game logs
 
@@ -139,18 +169,29 @@ class TournamentScoreTracker(commands.Cog):
         df = df.set_index(self.score_table_index, drop=False)
 
         async with self.game_records_lock:
-            for index, row in self.GAME_RECORDS.iterrows():
-                df = await self.update_score_table(df, self.GAME_RECORDS, index, starting_points, return_points, uma)
+            if sanma:
+                records = self.SANMA_GAME_RECORDS
+            else:
+                records = self.YONMA_GAME_RECORDS
+
+            for index, row in records.iterrows():
+                df = await self.update_score_table(df, records, index, starting_points, return_points, uma, sanma)
 
         return df
 
-    async def update_score_table(self, df, records, index, starting_points, return_points, uma):
+    async def update_score_table(self, df, records, index, starting_points, return_points, uma, sanma):
         '''
         Updates the score table with a game record
         '''
+        if sanma:
+            name_fields = self.sanma_player_name_fields
+            point_fields = self.sanma_player_point_fields
+        else:
+            name_fields = self.yonma_player_name_fields
+            point_fields = self.yonma_player_point_fields
 
-        PLAYERS = [records.loc[index, n] for n in self.player_name_fields]
-        POINTS = [records.loc[index, s] for s in self.player_point_fields]
+        PLAYERS = [records.loc[index, n] for n in name_fields]
+        POINTS = [records.loc[index, s] for s in point_fields]
 
         assert(len(PLAYERS) == len(POINTS))
 
@@ -251,7 +292,6 @@ class TournamentScoreTracker(commands.Cog):
                 break
 
             res = await ContestManager.client.call('fetchContestGameRecords', last_index=next_index)
-
             next_index = res.next_index
 
             for item in res.record_list:
@@ -268,6 +308,10 @@ class TournamentScoreTracker(commands.Cog):
             if num_found > 0:
                 response_text = f"Found {num_found} games."
                 await response_msg.edit(content=response_text)
+
+            # Response was only one page long.
+            if next_index == 0:
+                break
 
         await ctx.send("Finished.")
         await self.record_multiple_games(hits)
@@ -305,19 +349,22 @@ class TournamentScoreTracker(commands.Cog):
 
         starting_points = rules.init_point
         target_points = rules.fandian
-        shunweima_1 = (int)(-1*(rules.shunweima_2 +
-                                rules.shunweima_3 + rules.shunweima_4))
+        sanma = is_sanma(res.game_rule_setting.round_type)
 
-        df = await self.create_score_table(starting_points, target_points, [shunweima_1, rules.shunweima_2, rules.shunweima_3, rules.shunweima_4])
+        if sanma:
+            shunweima_1 = (int)(-1*(rules.shunweima_2 +
+                                    rules.shunweima_3 + rules.shunweima_4))
+            uma = [shunweima_1, rules.shunweima_2, rules.shunweima_3, rules.shunweima_4]
+        else:
+            shunweima_1 = (int)(-1*(rules.shunweima_2 + rules.shunweima_3))
+            uma = [shunweima_1, rules.shunweima_2, rules.shunweima_3]
 
+        df = await self.create_score_table(starting_points, target_points, uma, sanma)
         df = df.sort_values(by=self.field_total_score, ascending=False)
         df = df.reset_index(drop=True)
         df.index += 1
 
         scores = await self.convert_to_multiple_strings(df, self.score_table_display_fields)
-
-        print(self.GAME_RECORDS)
-        print(df)
 
         for s in scores:
             await ctx.send(s)
@@ -345,13 +392,10 @@ class TournamentScoreTracker(commands.Cog):
 
         scores = await self.convert_to_multiple_strings(df, fields=df.columns)
 
-        print(self.GAME_RECORDS)
-        print(df)
-
         for s in scores:
             await ctx.send(s)
 
-    async def best_consecutive_score_table(self, n, starting_points, target_points, uma):
+    async def best_consecutive_score_table(self, n, starting_points, target_points, uma, sanma=False):
         df = pd.DataFrame(columns=[self.field_majsoul_name])
 
         records = {}
@@ -359,11 +403,18 @@ class TournamentScoreTracker(commands.Cog):
         ScoreCalculator = self.bot.get_cog('ScoreCalculator')
 
         async with self.game_records_lock:
-            for i in self.GAME_RECORDS.index:
-                PLAYERS = [self.GAME_RECORDS.loc[i, n]
-                           for n in self.player_name_fields]
-                POINTS = [self.GAME_RECORDS.loc[i, s]
-                          for s in self.player_point_fields]
+            if sanma:
+                records = self.SANMA_GAME_RECORDS
+                name_fields = self.sanma_player_name_fields
+                point_fields = self.sanma_player_point_fields
+            else:
+                records = self.YONMA_GAME_RECORDS
+                name_fields = self.yonma_player_name_fields
+                point_fields = self.yonma_player_point_fields
+
+            for i in records.index:
+                PLAYERS = [records.loc[i, n] for n in name_fields]
+                POINTS = [records.loc[i, s] for s in point_fields]
                 SCORES = ScoreCalculator.calculate_scores(
                     POINTS, starting_points, target_points, uma)
 
@@ -372,8 +423,6 @@ class TournamentScoreTracker(commands.Cog):
                         records[name] = []
 
                     records[name].append(score)
-
-        print(records)
 
         for name in records:
             best_total, best_scores = self.best_consecutive_n(records[name], n)
@@ -407,16 +456,8 @@ class TournamentScoreTracker(commands.Cog):
 
         return best_sum, scores[best_start_index:best_start_index+n]
 
-    @commands.command(name='record-game', hidden=True)
-    async def command_record_game(self, ctx, uuid):
-        await self.record_game(uuid)
-        await ctx.send(f'Game {uuid} recorded.')
-        for index, row in self.GAME_RECORDS.iterrows():
-            PLAYERS = [self.GAME_RECORDS.loc[index, n]
-                       for n in self.player_name_fields]
-            POINTS = [self.GAME_RECORDS.loc[index, s]
-                      for s in self.player_point_fields]
-
-
 def setup(bot):
     bot.add_cog(TournamentScoreTracker(bot))
+
+def is_sanma(round_type):
+    return round_type in [11, 12, 13, 14]

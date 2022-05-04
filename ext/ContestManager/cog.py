@@ -716,8 +716,8 @@ class ContestManagerInterface(commands.Cog):
                 for p in record.result.players]
             response = f'Game concluded for {" | ".join(player_scores_rendered)}'
 
-            ScoreTrackerCog = self.bot.get_cog('TournamentScoreTracker')
-            await ScoreTrackerCog.record_multiple_games([record])
+            # ScoreTrackerCog = self.bot.get_cog('TournamentScoreTracker')
+            # await ScoreTrackerCog.record_multiple_games([record])
 
         if msg.game_uuid in self.active_games:
             nicknames = self.active_games[msg.game_uuid]
