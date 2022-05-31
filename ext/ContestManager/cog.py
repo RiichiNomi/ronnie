@@ -144,6 +144,8 @@ class ContestManagerInterface(commands.Cog):
             return
         if reaction.message.id != self.list_message.id:
             return
+        
+        await reaction.message.channel.send(f"{user.name} pressed the button.")
 
         try:
             await reaction.remove(user)
@@ -197,7 +199,7 @@ class ContestManagerInterface(commands.Cog):
                 embed.add_field(name='Uma', value=f'{shunweima_1}/{rules.shunweima_2}/{rules.shunweima_3}/{rules.shunweima_4}')
             #Kuitan
             if not is_sanma(res.game_rule_setting.round_type):
-                embed.add_field(name='Open Tanyao', value=rules.shiduan)
+                embed.add_field(name='Open Tanyao', value=res.game_rule_setting.shiduan)
             #Agari Yame
             embed.add_field(name='Agari Yame', value=rules.have_helezhongju)
             #Busting On
@@ -448,8 +450,8 @@ class ContestManagerInterface(commands.Cog):
                 PlayerNicknamesCog = self.bot.get_cog('PlayerNicknames')
                 p = PlayerNicknamesCog.players
 
-                if ctx.author.id not in p['discord_id'].values or p['mahjsoul_name'][ctx.author.id] != None:
-                    nickname = p['mahjsoul_name'][ctx.author.id]
+                if ctx.author.id not in p['discord_id'].values or p['majsoul_name'][ctx.author.id] != None:
+                    nickname = p['majsoul_name'][ctx.author.id]
                 else:
                     await ctx.send(f'No Mahjsoul name registered for {ctx.author.mention}. Type ms/mahjsoul-name <your-mahjsoul-name> to register.')
                     return
@@ -493,8 +495,8 @@ class ContestManagerInterface(commands.Cog):
                 PlayerNicknamesCog = self.bot.get_cog('PlayerNicknames')
                 p = PlayerNicknamesCog.players
 
-                if ctx.author.id not in p['discord_id'].values or p['mahjsoul_name'][ctx.author.id] != None:
-                    nickname = p['mahjsoul_name'][ctx.author.id]
+                if ctx.author.id not in p['discord_id'].values or p['majsoul_name'][ctx.author.id] != None:
+                    nickname = p['majsoul_name'][ctx.author.id]
                 else:
                     await ctx.send(f'No Mahjsoul name registered for {ctx.author.mention}. Type ms/mahjsoul-name <your-mahjsoul-name> to register.')
                     return
@@ -700,6 +702,12 @@ class ContestManagerInterface(commands.Cog):
             if item.record.uuid == game_uuid:
                 return item.record
         return None
+    
+    # @commands.command(name='record_one')
+    # async def XXX_record_one(self, ctx, game_uuid:str):
+    #     record = await self.locate_completed_game(game_uuid)
+    #     ScoreTrackerCog = self.bot.get_cog('TournamentScoreTracker')
+    #     await ScoreTrackerCog.record_multiple_games([record])
 
     async def on_NotifyContestGameEnd(self, _, msg):
         # It takes some time for the results to register into the log
@@ -716,8 +724,8 @@ class ContestManagerInterface(commands.Cog):
                 for p in record.result.players]
             response = f'Game concluded for {" | ".join(player_scores_rendered)}'
 
-            # ScoreTrackerCog = self.bot.get_cog('TournamentScoreTracker')
-            # await ScoreTrackerCog.record_multiple_games([record])
+            ScoreTrackerCog = self.bot.get_cog('TournamentScoreTracker')
+            await ScoreTrackerCog.record_multiple_games([record])
 
         if msg.game_uuid in self.active_games:
             nicknames = self.active_games[msg.game_uuid]

@@ -77,7 +77,23 @@ class TournamentScoreTracker(commands.Cog):
         self.game_records_lock = asyncio.Lock()
         self.game_records_filename = None
 
-        self.game_log_filter = None
+        env_start = os.environ.get('GAME_LOG_FILTER_START')
+        env_end = os.environ.get('GAME_LOG_FILTER_END')
+
+        try:
+            datetime_start = datetime.fromisoformat(env_start)
+        except ValueError as e:
+            datetime_start = None
+
+        try:
+            datetime_end = datetime.fromisoformat(env_end)
+        except ValueError as e:
+            datetime_end = None
+
+        if datetime_start and datetime_end:
+            self.game_log_filter = GameLogFilter(datetime_start, datetime_end)
+        else:
+            self.game_log_filter = None
 
         self.event_stop_log_search = asyncio.Event()
 
@@ -352,12 +368,12 @@ class TournamentScoreTracker(commands.Cog):
         sanma = is_sanma(res.game_rule_setting.round_type)
 
         if sanma:
+            shunweima_1 = (int)(-1*(rules.shunweima_2 + rules.shunweima_3))
+            uma = [shunweima_1, rules.shunweima_2, rules.shunweima_3]
+        else:
             shunweima_1 = (int)(-1*(rules.shunweima_2 +
                                     rules.shunweima_3 + rules.shunweima_4))
             uma = [shunweima_1, rules.shunweima_2, rules.shunweima_3, rules.shunweima_4]
-        else:
-            shunweima_1 = (int)(-1*(rules.shunweima_2 + rules.shunweima_3))
-            uma = [shunweima_1, rules.shunweima_2, rules.shunweima_3]
 
         df = await self.create_score_table(starting_points, target_points, uma, sanma)
         df = df.sort_values(by=self.field_total_score, ascending=False)
