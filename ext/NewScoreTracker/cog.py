@@ -17,7 +17,8 @@ RECORDS_FOLDER = 'ext/NewScoreTracker/records'
 
 DEFAULT_RECORDS_NAME = 'log'
 
-DISCORD_MAX_CHAR_LIMIT = 2000
+# 2000 Minus extra characters for fixed formatting: ```\n$FOO\n```\n
+DISCORD_MAX_CHAR_LIMIT = 1990
 
 
 class GameLogFilter():
@@ -239,30 +240,28 @@ class TournamentScoreTracker(commands.Cog):
 
         return df
 
-    async def convert_to_string(self, df, fields, numalign='right', stralign='right'):
-        response = f'```{tabulate(df, headers=fields, floatfmt=".1f", numalign=numalign)}```'
-
-        return response
 
     async def convert_to_multiple_strings(self, df, fields, numalign='right', stralign='right'):
         table = df
         table_list = [table]
 
-        while True:
-            table_string = await self.convert_to_string(table_list[0], fields, numalign, stralign)
+        table_string = tabulate(df, headers=fields, floatfmt=".1f", numalign=numalign)
 
-            if len(table_string) > DISCORD_MAX_CHAR_LIMIT:
-                temp_list = []
-                for t in table_list:
-                    index = round(len(t)/2)
-                    temp_list.append(t[0:index])
-                    temp_list.append(t[index:])
-
-                table_list = temp_list
+        messages = []
+        current_msg = ''
+        for line in table_string.splitlines():
+            if len(line) > DISCORD_MAX_CHAR_LIMIT:
+                raise Exception('really long message which you could handle more intelligently')
+            elif len(line) + len(current_msg) < DISCORD_MAX_CHAR_LIMIT:
+                current_msg += line + "\n"
             else:
-                break
+                messages.append(f"```\n{current_msg}```\n")
+                current_msg = line + "\n"
 
-        return [f'```{tabulate(table, headers=fields, floatfmt=".1f", numalign=numalign, stralign=stralign)}```' for table in table_list]
+        if current_msg:
+            messages.append(f"```\n{current_msg}```\n")
+
+        return messages
 
     @commands.command(name='set-datetime-filter', aliases=['set-filter'])
     async def command_set_datetime_filter(self, ctx, start: str = "", end: str = ""):

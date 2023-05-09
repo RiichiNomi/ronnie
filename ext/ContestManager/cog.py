@@ -134,9 +134,21 @@ class ContestManagerInterface(commands.Cog):
             return False
         return True
 
+    def has_contest_role(self, user, channel_id):
+        allow_roles = self.contests[channel_id].get('allow_roles')
+        if allow_roles is None:
+            return False
+        for role in user.roles:
+            if role.id in allow_roles:
+                return True
+        return False
+        
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
         if user.bot:
+            return
+
+        if not self.has_contest_role(user, reaction.message.channel.id):
             return
 
         # Only reactions to the list message would be handled
@@ -241,6 +253,9 @@ class ContestManagerInterface(commands.Cog):
         """
         if ctx.channel.id != self.main_channel_id:
             return
+        
+        if not self.has_contest_role(ctx.author, ctx.channel.id):
+            return
 
         self.main_channel = ctx.channel
 
@@ -292,6 +307,9 @@ class ContestManagerInterface(commands.Cog):
         '''
         if ctx.channel.id != self.main_channel_id:
             return
+	
+        if not self.has_contest_role(ctx.author, ctx.channel.id):
+            return
 
         self.main_channel = ctx.channel
 
@@ -299,92 +317,18 @@ class ContestManagerInterface(commands.Cog):
             res = await self.client.call('searchAccountByEid', eids=[friend_id])
 
             # it's a success if we get here
-            nickname = res.search_result[0].nickname
-            account_id = res.search_result[0].account_id
+            if res.search_result:
+                nickname = res.search_result[0].nickname
+                account_id = res.search_result[0].account_id
 
-            res = await self.client.call('updateContestPlayer',
-                    setting_type=2, # add a player ignoring whats already there
-                    nicknames=[nickname],
-                    account_ids=[account_id])
+                res = await self.client.call('updateContestPlayer',
+                        setting_type=2, # add a player ignoring whats already there
+                        nicknames=[nickname],
+                        account_ids=[account_id])
 
-            await ctx.send(f'Registered player into lobby: {nickname}')
-
-    @commands.command(name='setrule')
-    async def set_rule(self, ctx, rule:str = None, value:str = None):
-        '''
-        Sets various tournament rules.
-
-        Supported rule ids and values:
-        * gametype: east, south, single (All 4-player)
-        * turntime: 3+5, 5+10, 5+20, 60
-        * localyaku: on, off
-
-        Usage: `ms/setrule <ruleid> <value>`
-        '''
-        if ctx.channel.id != self.main_channel_id:
-            return
-
-        self.main_channel = ctx.channel
-
-        async with ctx.channel.typing():
-            if not await self.is_admin(ctx):
-                return
-
-            if not self.client.websocket or not self.client.websocket.open:
-                await ctx.send('Client not connected.')
-                return
-
-            # Get current rules
-            res = await self.client.call('fetchContestGameRule')
-            rules = res.game_rule_setting
-
-            if rule == 'turntime':
-                mapping = {'3+5': 1, '5+10': 2, '5+20': 3, '60': 4}
-                mapped = mapping.get(value)
-
-                if not mapped:
-                    await ctx.send(f'Invalid value for {rule}. Valid: {", ".join(mapping.keys())}')
-                    return
-
-                rules.thinking_type = mapped
-            elif rule == 'gametype':
-                mapping = {'4east': 1, '4south': 2, '4single': 4, '3east': 11, '3south': 12 }
-                mapped = mapping.get(value)
-
-                if not mapped:
-                    await ctx.send(f'Invalid value for {rule}. Valid: {", ".join(mapping.keys())}')
-                    return
-
-                rules.round_type = mapped
-            elif rule == 'localyaku':
-                mapping = {'on': 1, 'off': 0}
-                mapped = mapping.get(value, 'MISSING') # because the off value, 0, is falsey
-
-                if mapped == 'MISSING':
-                    await ctx.send(f'Invalid value for {rule}. Valid: {", ".join(mapping.keys())}')
-                    return
-
-                rules.detail_rule_v2.game_rule.guyi_mode = mapped
-            elif rule == 'aka':
-                mapping = {'nashi': 0, 'off': 0, 'ari': 3, '3': 3, '4': 4}
-                mapped = mapping.get(value, 'MISSING')
-
-                if mapped == 'MISSING':
-                    await ctx.send(f'Invalid value for {rule}. Valid: {", ".join(mapping.keys())}')
-                    return
-
-                rules.dora_count = mapped
+                await ctx.send(f'Registered player into lobby: {nickname}')
             else:
-                await ctx.send(f'Unrecognized rule to set. Valid: gametype, turntime')
-                return
-
-            # might throw an exception
-            await self.client.call('updateContestGameRule', game_rule_setting = rules)
-            await ctx.send(f'Rules updated!')
-
-            # Show the new rules
-            self.rules = res.game_rule_setting
-            await self.display_tournament_rules(ctx)
+                await ctx.send(f"Couldn't look up friend code: {friend_id}")
 
     @commands.command(name='pause')
     async def dhs_pause(self, ctx, nickname:str = None):
@@ -395,6 +339,9 @@ class ContestManagerInterface(commands.Cog):
         Pauses an ongoing game for `<majsoul-user>`. If the command is invoked without any arguments, the bot will use the Majsoul name registered to the Discord user who invoked the command.
         '''
         if ctx.channel.id != self.main_channel_id:
+            return
+        
+        if not self.has_contest_role(ctx.author, ctx.channel.id):
             return
 
         self.main_channel = ctx.channel
@@ -411,7 +358,7 @@ class ContestManagerInterface(commands.Cog):
                 if ctx.author.id in p:
                     nickname = p['majsoul_name']
                 else:
-                    await ctx.send(f'No Mahjsoul name registered for {ctx.author.mention}. Type ms/mahjsoul-name <your-mahjsoul-name> to register.')
+                    await ctx.send(f'No Mahjsoul name registered for {ctx.author.mention}. Type r/mahjsoul-name <your-mahjsoul-name> to register.')
                     return
 
             game_uuid = await self.client.get_game_id(nickname)
@@ -437,6 +384,9 @@ class ContestManagerInterface(commands.Cog):
         Resumes an ongoing game for `<majsoul-user>`. If the command is invoked without any arguments, the bot will use the Majsoul name registered to the Discord user who invoked the command.
         '''
         if ctx.channel.id != self.main_channel_id:
+            return
+
+        if not self.has_contest_role(ctx.author, ctx.channel.id):
             return
 
         self.main_channel = ctx.channel
@@ -479,6 +429,9 @@ class ContestManagerInterface(commands.Cog):
         Terminates an ongoing game for `<majsoul-user>`. If the command is invoked without any arguments, the bot will use the Majsoul name registered to the Discord user who invoked the command.
         '''
         if ctx.channel.id != self.main_channel_id:
+            return
+
+        if not self.has_contest_role(ctx.author, ctx.channel.id):
             return
 
         self.main_channel = ctx.channel
@@ -559,6 +512,9 @@ class ContestManagerInterface(commands.Cog):
         if ctx.channel.id != self.main_channel_id:
             return
 
+        if not self.has_contest_role(ctx.author, ctx.channel.id):
+            return
+
         self.main_channel = ctx.channel
         async with ctx.channel.typing():
             if not self.client.websocket or not self.client.websocket.open:
@@ -572,8 +528,6 @@ class ContestManagerInterface(commands.Cog):
             list_display = self.render_lobby_output(games, queued)
 
             self.list_message = await self.main_channel.send(list_display)
-            await self.list_message.add_reaction(REACTION_HUMAN)
-            await self.list_message.add_reaction(REACTION_BOT)
 
     async def shuffle(self, discord_channel, withBots=False):
         if self.layout:
@@ -650,51 +604,7 @@ class ContestManagerInterface(commands.Cog):
             await self._started_event.wait()
 
             nicknames = ' | '.join([p.nickname for p in table])
-            await discord_channel.send(f"Game starting for {nicknames}")
-
-    @commands.command(name='positivity')
-    async def dhs_XXX_positivity(self, ctx):
-        r = requests.get('https://raw.githubusercontent.com/nychealth/coronavirus-data/master/latest/now-tests.csv')
-        reader = csv.reader(r.text.splitlines())
-        next(reader) # skip headers
-
-        prev_date = None
-        prev_date_positivity = None
-        curr_date = None
-        curr_date_positivity = None
-
-        for row in reader:
-            if curr_date is not None:
-                prev_date = curr_date
-                prev_date_positivity = curr_date_positivity
-
-            curr_date = row[0]
-            curr_date_positivity = float(row[6]) * 100
-
-        if curr_date:
-            diff_positivity = curr_date_positivity - prev_date_positivity
-            if diff_positivity > 0:
-                trailer = "Brr... things are getting worse."
-            elif diff_positivity == 0:
-                trailer = "No change."
-            else:
-                trailer = "Woo, getting better!"
-
-            await ctx.send(f"The NYC 7-day average positivity rate as of {curr_date} is {curr_date_positivity:.2f}%. The last reported 7-day average on {prev_date} was {prev_date_positivity:.2f}%, representing a change of {diff_positivity:.2f}%. {trailer}")
-        else:
-            await ctx.send("Unable to detect positivity rates in this result. Try again later.")
-
-    @commands.command(name='shuffle')
-    async def dhs_create_random_games(self, ctx):
-        '''Starts randomly matched games.
-
-        Usage: `ms/shuffle`
-
-        Selects four random players who are queued up in the tournament lobby and starts a game for them. Does this repeatedly until there are no longer enough players for a full table.
-        '''
-
-        async with ctx.channel.typing():
-            await self.shuffle(ctx.channel)
+            await discord_channel.send(f"Battle starting for {nicknames}")
 
     async def locate_completed_game(self, game_uuid):
         res = await self.client.call('fetchContestGameRecords')
@@ -713,7 +623,12 @@ class ContestManagerInterface(commands.Cog):
         # It takes some time for the results to register into the log
         await asyncio.sleep(5)
 
-        record = await self.locate_completed_game(msg.game_uuid)
+        try:
+            record = await self.locate_completed_game(msg.game_uuid)
+        except Exception as e:
+            await self.login()
+            record = await self.locate_completed_game(msg.game_uuid)
+
         response = None
 
         if record:
@@ -789,12 +704,6 @@ class ContestManagerInterface(commands.Cog):
             content = self.render_lobby_output_with_layout(games, queued)
         else:
             content = self.render_lobby_output_casual(games, queued)
-
-        content += f'{REACTION_HUMAN} Click the die to start games with humans only.\n'
-
-        # Can't use bots in Tournament Mode
-        if not self.layout:
-            content += f'{REACTION_BOT} Click the robot to start games with humans and AI.\n'
 
         return content
 

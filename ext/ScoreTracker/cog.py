@@ -8,7 +8,7 @@ from discord.ext import commands
 
 from tabulate import tabulate
 
-DISCORD_MAX_CHAR_LIMIT = 2000
+DISCORD_MAX_CHAR_LIMIT = 1995
 
 class TournamentScoreTracker(commands.Cog):
     "Score Tracking"

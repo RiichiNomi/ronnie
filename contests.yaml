@@ -8,6 +8,9 @@ contests:
       - 225048943350775808 # thursday
       - 156631484642492416 # f.zs
       - 210216890771963907 # StockSoul
+    allow_roles:
+      - 704415579498479686
+      - 882371495689596939
   # Riichi Nomi NYC [Dev]
   - contest_id: 8723
     channel_id: 813135165819715635
