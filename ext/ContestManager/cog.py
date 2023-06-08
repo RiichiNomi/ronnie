@@ -17,6 +17,15 @@ from modules.pymjsoul.channel import MajsoulChannel, GeneralMajsoulError
 from modules.pymjsoul.client import ContestManagerClient
 from modules.pymjsoul.proto.combined import lq_dhs_pb2 as lq_dhs
 
+TAG_MESSAGES = [
+    'Time for more MAHJONG!',
+    'Ready to get some points back?',
+    'Queue for more!',
+    'QUEUE',
+    'MOAR GAMES',
+    'A tanyao can end it all. But QUEUEING is where it BEGINS.',
+]
+
 WINDS = [
     'East \U0001F000',
     'South \U0001F001',
@@ -103,6 +112,10 @@ class ContestManagerInterface(commands.Cog):
         await self.login()
         await self.manage_contest(self.contests[self.main_channel_id]['contest_id'])
 
+        # relies on NewScoreTracker being loaded first
+        ScoreTrackerCog = self.bot.get_cog('TournamentScoreTracker')
+        await ScoreTrackerCog.get_logs()
+
     # Helpers for common tasks that can be either invoked by command or
     # automatically upon startup.
     async def manage_contest(self, contest_id):
@@ -135,7 +148,11 @@ class ContestManagerInterface(commands.Cog):
         return True
 
     def has_contest_role(self, user, channel_id):
-        allow_roles = self.contests[channel_id].get('allow_roles')
+        contest = self.contests.get(channel_id)
+        if not contest:
+            return False
+
+        allow_roles = contest.get('allow_roles')
         if allow_roles is None:
             return False
         for role in user.roles:
@@ -496,7 +513,7 @@ class ContestManagerInterface(commands.Cog):
             if self.layout:
                 await ctx.send('Tournament mode disabled!')
             else:
-                await ctx.send('Casual mode already enabled. No changes made.')
+                await ctx.send('Shuffle mode already enabled. No changes made.')
 
             self.layout = []
             await self.dhs_show_active_players(ctx)
@@ -594,6 +611,7 @@ class ContestManagerInterface(commands.Cog):
         games, queued = await self.client.display_players(res)
         list_display = self.render_lobby_output(games, queued)
         await self.list_message.edit(content=list_display)
+        return games, queued
 
     async def create_game_helper(self, discord_channel, table):
         async with self._create_game_lock:
@@ -635,7 +653,7 @@ class ContestManagerInterface(commands.Cog):
             player_seat_lookup = {a.seat: (a.account_id, a.nickname) for a in record.accounts}
 
             player_scores_rendered = [
-                f'{player_seat_lookup.get(p.seat, (0, "Computer"))[1]}({p.part_point_1})'
+                f'{player_seat_lookup.get(p.seat, (0, "Computer"))[1]} ({p.part_point_1})'
                 for p in record.result.players]
             response = f'Game concluded for {" | ".join(player_scores_rendered)}'
 
@@ -655,7 +673,18 @@ class ContestManagerInterface(commands.Cog):
         await self.main_channel.send(response)
 
         if self.list_message != None:
-            await self.refresh_message()
+            games, queued = await self.refresh_message()
+        else:
+            games, queued = await self.client.display_players()
+
+        # If a game ended, and we observe there are now 0 games,
+        # and the contest has a ping, ping it!
+        contest = self.contests[self.main_channel_id]
+        allow_roles = contest.get('allow_roles', [])
+
+        if len(games) == 0 and allow_roles:
+            msg = ' '.join([f'<@&{role_id}>' for role_id in allow_roles]) + ' ' + random.choice(TAG_MESSAGES)
+            await self.main_channel.send(msg)
 
     async def on_NotifyContestGameStart(self, _, msg):
         if not self._started_event:
@@ -737,7 +766,7 @@ class ContestManagerInterface(commands.Cog):
         numPlaying = sum([len(game.players) for game in games])
         numReady = len(queued)
 
-        response = f'**[Casual Games: {self.contest.contest_name}]**\n'
+        response = f'**[Shuffled Games: {self.contest.contest_name}]**\n'
         response += f'Join the Tournament Lobby: {self.contest.contest_id} and press _Prepare for Match_\n'
         response += f'{numReady} Ready, {numPlaying} In Game\n\n'
 

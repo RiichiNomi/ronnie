@@ -1,5 +1,5 @@
-ext.ContestManager.cog
 ext.NewScoreTracker.cog
+ext.ContestManager.cog
 ext.ScoreCalculator.cog
 ext.PlayerNicknames.cog
 ext.HelpInterface.cog

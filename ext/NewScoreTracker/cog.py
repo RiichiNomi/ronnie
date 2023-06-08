@@ -4,10 +4,12 @@ import math
 import os
 import pandas as pd
 import pickle
+import pytz
 import unicodedata
 import json
 
 from datetime import date, datetime
+from dateutil.relativedelta import relativedelta, MO, FR
 
 from discord.ext import commands
 
@@ -26,19 +28,12 @@ class GameLogFilter():
         self.datetime_start = datetime_start
         self.datetime_end = datetime_end
 
-    def filter_log(self, game_log):
-        if datetime.fromtimestamp(game_log.start_time) < self.datetime_start:
-            return False
-        if datetime.fromtimestamp(game_log.end_time) > self.datetime_end:
-            return False
-
-        return True
+    def match(self, dt):
+        return dt >= self.datetime_start and dt <= self.datetime_end
 
 
 class TournamentScoreTracker(commands.Cog):
     "Score Tracking"
-    field_best_consecutive_score = 'Best\nRun'
-
     field_majsoul_name = 'Majsoul Name'
     field_total_score = 'Total Score'
     field_average_score = 'Average Score'
@@ -78,23 +73,16 @@ class TournamentScoreTracker(commands.Cog):
         self.game_records_lock = asyncio.Lock()
         self.game_records_filename = None
 
-        env_start = os.environ.get('GAME_LOG_FILTER_START')
-        env_end = os.environ.get('GAME_LOG_FILTER_END')
+        # automatically determine filter start/end
+        now = datetime.now().replace(hour=0, minute=0)
+        first_monday_date = (now + relativedelta(day=1, weekday=MO(1)))
+        last_friday_date = (now + relativedelta(day=31, weekday=FR(-1)))
+        self.game_log_filter = GameLogFilter(first_monday_date, last_friday_date)
 
-        try:
-            datetime_start = datetime.fromisoformat(env_start)
-        except ValueError as e:
-            datetime_start = None
+        this_monday_date = (now + relativedelta(weekday=MO(-1)))
+        this_friday_date = (this_monday_date + relativedelta(weekday=FR(1)))
 
-        try:
-            datetime_end = datetime.fromisoformat(env_end)
-        except ValueError as e:
-            datetime_end = None
-
-        if datetime_start and datetime_end:
-            self.game_log_filter = GameLogFilter(datetime_start, datetime_end)
-        else:
-            self.game_log_filter = None
+        self.weekly_filter = GameLogFilter(this_monday_date, this_friday_date)
 
         self.event_stop_log_search = asyncio.Event()
 
@@ -174,7 +162,7 @@ class TournamentScoreTracker(commands.Cog):
             else:
                 self.YONMA_GAME_RECORDS = self.YONMA_GAME_RECORDS.append(games)
 
-    async def create_score_table(self, starting_points, return_points, uma, sanma=False):
+    async def create_score_table(self, starting_points, return_points, uma, sanma=False, custom_filter=None):
         '''
         Processes all the stored game logs
 
@@ -192,11 +180,13 @@ class TournamentScoreTracker(commands.Cog):
                 records = self.YONMA_GAME_RECORDS
 
             for index, row in records.iterrows():
-                df = await self.update_score_table(df, records, index, starting_points, return_points, uma, sanma)
+                end_time = datetime.fromtimestamp(row.loc[self.field_game_end_time])
+                if not custom_filter or custom_filter.match(end_time):
+                    df = await self.update_score_table(df, records, index, starting_points, return_points, uma, sanma, custom_filter)
 
         return df
 
-    async def update_score_table(self, df, records, index, starting_points, return_points, uma, sanma):
+    async def update_score_table(self, df, records, index, starting_points, return_points, uma, sanma, custom_filter):
         '''
         Updates the score table with a game record
         '''
@@ -245,7 +235,9 @@ class TournamentScoreTracker(commands.Cog):
         table = df
         table_list = [table]
 
-        table_string = tabulate(df, headers=fields, floatfmt=".1f", numalign=numalign)
+        digested = [[index, row.loc[self.field_total_score], f'{row.loc[self.field_first]}-{row.loc[self.field_second]}-{row.loc[self.field_third]}-{row.loc[self.field_fourth]}', row.loc[self.field_majsoul_name]] for index, row in df.iterrows()]
+
+        table_string = tabulate(digested, headers=['#', 'Total', 'Record', 'Name'], floatfmt="+.1f", numalign=numalign)
 
         messages = []
         current_msg = ''
@@ -285,25 +277,20 @@ class TournamentScoreTracker(commands.Cog):
 
     @commands.command(name="retrieve-logs", aliases=["get-logs"])
     async def command_retrieve_logs(self, ctx):
-        if self.game_log_filter == None:
-            await ctx.send("Log filter not set. If you wish to retrieve all logs, enter a filter with no parameters set.")
-            return
+        num_found = await self.get_logs()
+        await ctx.send(f"Found {num_found} games.")
 
+    async def get_logs(self):
         ContestManager = self.bot.get_cog('ContestManagerInterface')
 
         next_index = 0
-        num_found = 0
         continueSearch = True
         hits = []
         self.initialize_dataframe()
 
-        response_text = f"Found {num_found} games."
-        response_msg = await ctx.send(response_text)
-
         while continueSearch:
             if self.event_stop_log_search.is_set():
                 self.event_stop_log_search.clear()
-                await ctx.send("Stopping search...")
                 break
 
             res = await ContestManager.client.call('fetchContestGameRecords', last_index=next_index)
@@ -311,8 +298,7 @@ class TournamentScoreTracker(commands.Cog):
 
             for item in res.record_list:
                 if self.game_log_filter != None:
-                    if self.game_log_filter.filter_log(item.record):
-                        num_found += 1
+                    if self.game_log_filter.match(datetime.fromtimestamp(item.record.end_time)):
                         hits.append(item.record)
 
                     if datetime.fromtimestamp(item.record.end_time) < self.game_log_filter.datetime_start:
@@ -320,16 +306,12 @@ class TournamentScoreTracker(commands.Cog):
                 else:
                     hits.append(item.record)
 
-            if num_found > 0:
-                response_text = f"Found {num_found} games."
-                await response_msg.edit(content=response_text)
-
             # Response was only one page long.
             if next_index == 0:
                 break
 
-        await ctx.send("Finished.")
         await self.record_multiple_games(hits)
+        return len(hits)
 
     @commands.command(name='scores', aliases=['score'])
     async def command_display_table(self, ctx):
@@ -340,22 +322,6 @@ class TournamentScoreTracker(commands.Cog):
 
         Displays a score table that automatically updates with the latest scores whenever a Majsoul game in the tournament lobby concludes.
         """
-
-        if self.game_log_filter != None:
-            dt_start = self.game_log_filter.datetime_start.date()
-            dt_end = self.game_log_filter.datetime_end.date()
-
-            if dt_start == date.min:
-                dt_start = "Past"
-            else:
-                dt_start = dt_start.isoformat()
-
-            if dt_end == date.max:
-                dt_end = "Present"
-            else:
-                dt_end = dt_end.isoformat()
-
-            await ctx.send(f"Displaying scores from {dt_start} to {dt_end}")
 
         ContestManager = self.bot.get_cog('ContestManagerInterface')
         res = await ContestManager.client.call('fetchContestGameRule')
@@ -374,6 +340,12 @@ class TournamentScoreTracker(commands.Cog):
                                     rules.shunweima_3 + rules.shunweima_4))
             uma = [shunweima_1, rules.shunweima_2, rules.shunweima_3, rules.shunweima_4]
 
+        # Monthly scores
+        if self.game_log_filter != None:
+            dt_start = self.game_log_filter.datetime_start.date()
+            dt_end = self.game_log_filter.datetime_end.date()
+            await ctx.send(f"MONTHLY scores ({dt_start} to {dt_end})")
+
         df = await self.create_score_table(starting_points, target_points, uma, sanma)
         df = df.sort_values(by=self.field_total_score, ascending=False)
         df = df.reset_index(drop=True)
@@ -384,95 +356,33 @@ class TournamentScoreTracker(commands.Cog):
         for s in scores:
             await ctx.send(s)
 
-    @commands.command(name='best-5')
-    async def command_best_consecutive_scores(self, ctx):
-        ContestManager = self.bot.get_cog('ContestManagerInterface')
-        res = await ContestManager.client.call('fetchContestGameRule')
+        # Weekly scores
+        if self.weekly_filter != None:
+            dt_start = self.weekly_filter.datetime_start.date()
+            dt_end = self.weekly_filter.datetime_end.date()
+            await ctx.send(f"WEEKLY scores ({dt_start} to {dt_end})")
 
-        rules = res.game_rule_setting.detail_rule_v2.game_rule
-
-        starting_points = rules.init_point
-        target_points = rules.fandian
-        shunweima_1 = (int)(-1*(rules.shunweima_2 +
-                                rules.shunweima_3 + rules.shunweima_4))
-
-        df = await self.best_consecutive_score_table(5, starting_points, target_points, [shunweima_1, rules.shunweima_2, rules.shunweima_3, rules.shunweima_4])
-
-        df = df.sort_values(
-            by=self.field_best_consecutive_score, ascending=False)
+        df = await self.create_score_table(starting_points, target_points, uma, sanma, self.weekly_filter)
+        df = df.sort_values(by=self.field_total_score, ascending=False)
         df = df.reset_index(drop=True)
         df.index += 1
 
-        df = df.fillna(value='n/a')
-
-        scores = await self.convert_to_multiple_strings(df, fields=df.columns)
+        scores = await self.convert_to_multiple_strings(df, self.score_table_display_fields)
 
         for s in scores:
             await ctx.send(s)
 
-    async def best_consecutive_score_table(self, n, starting_points, target_points, uma, sanma=False):
-        df = pd.DataFrame(columns=[self.field_majsoul_name])
-
-        records = {}
-
-        ScoreCalculator = self.bot.get_cog('ScoreCalculator')
-
-        async with self.game_records_lock:
-            if sanma:
-                records = self.SANMA_GAME_RECORDS
-                name_fields = self.sanma_player_name_fields
-                point_fields = self.sanma_player_point_fields
-            else:
-                records = self.YONMA_GAME_RECORDS
-                name_fields = self.yonma_player_name_fields
-                point_fields = self.yonma_player_point_fields
-
-            for i in records.index:
-                PLAYERS = [records.loc[i, n] for n in name_fields]
-                POINTS = [records.loc[i, s] for s in point_fields]
-                SCORES = ScoreCalculator.calculate_scores(
-                    POINTS, starting_points, target_points, uma)
-
-                for name, score in list(zip(PLAYERS, SCORES)):
-                    if name not in records:
-                        records[name] = []
-
-                    records[name].append(score)
-
-        for name in records:
-            best_total, best_scores = self.best_consecutive_n(records[name], n)
-
-            df.loc[name, self.field_majsoul_name] = name
-            df.loc[name, self.field_best_consecutive_score] = best_total
-
-            i = 1
-            for score in best_scores:
-                df.loc[name, f'{i}'] = score
-                i += 1
-
-        return df
-
-    def best_consecutive_n(self, scores, n):
-        if len(scores) <= n or n <= 0:
-            return sum(scores), scores
-
-        best_start_index = 0
-        best_sum = sum(scores[0:n])
-
-        for i in range(1, len(scores)):
-            if i > len(scores) - n:
-                break
-
-            current_sum = sum(scores[i:i+n])
-
-            if current_sum > best_sum:
-                best_start_index = i
-                best_sum = current_sum
-
-        return best_sum, scores[best_start_index:best_start_index+n]
-
 def setup(bot):
-    bot.add_cog(TournamentScoreTracker(bot))
+    t = TournamentScoreTracker(bot)
+    bot.add_cog(t)
 
 def is_sanma(round_type):
     return round_type in [11, 12, 13, 14]
+
+def first_monday(year, month):
+    day = (8 - datetime.date(year, month, 1).weekday()) % 7
+    return datetime.date(year, month, day)
+
+def final_wednesday(year, month):
+    day = ((8+2) - datetime.date(year, month, 31).weekday()) % 7
+    return datetime.date(year, month, day)

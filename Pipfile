@@ -6,12 +6,14 @@ name = "pypi"
 [packages]
 protobuf = "~=3.20"
 python-dotenv = "*"
-discord = "*"
+discord.py = "==1.4.2"
 websockets = "*"
 tabulate = "*"
-pandas = "*"
+pandas = "<2"
 protobuf_inspector = "*"
 pyyaml = "*"
 requests = "*"
+dateparser = "*"
+cron_converter = "*"
 
 [dev-packages]
