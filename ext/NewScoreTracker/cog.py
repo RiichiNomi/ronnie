@@ -372,9 +372,9 @@ class TournamentScoreTracker(commands.Cog):
         for s in scores:
             await ctx.send(s)
 
-def setup(bot):
+async def setup(bot):
     t = TournamentScoreTracker(bot)
-    bot.add_cog(t)
+    await bot.add_cog(t)
 
 def is_sanma(round_type):
     return round_type in [11, 12, 13, 14]
