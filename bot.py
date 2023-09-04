@@ -4,6 +4,7 @@ import os
 from os.path import join, dirname
 import subprocess
 
+from discord import Intents
 from discord.ext import commands
 
 #LOAD BOT CONFIGURATION
@@ -28,15 +29,23 @@ except FileNotFoundError:
         EXTENSIONS = []
 
 #INSTANTIATE BOT
-bot = commands.Bot(command_prefix=PREFIXES)
+# Ronnie needs message content, reactions, and guilds (for role monitoring)
+intents = Intents(messages=True, reactions=True, message_content=True, guilds=True)
+bot = commands.Bot(command_prefix=PREFIXES, intents=intents)
 
 #EVENTS
 @bot.event
 async def on_ready():
     print("Connected")
-    for extension in EXTENSIONS:
-        bot.load_extension(extension)
-        print(f'Loaded extension: {extension}')
+
+# handle regular cmd errors
+@bot.event
+async def on_command_error(ctx: commands.Context, error: commands.CommandError):
+    if isinstance(error, commands.errors.NotOwner):
+        await ctx.send(f"Missing privileges for this cmd")
+    else:
+        raise error
+
 
 #COMMANDS
 @bot.command(name='ping')
@@ -79,7 +88,16 @@ async def reload_extension(ctx, extension_name=None):
         
         await ctx.send(f"Reloaded all extensions.")
 
+async def setup():
+    for extension in EXTENSIONS:
+        print(f'Loading extension: {extension}')
+        await bot.load_extension(extension)
+    cog = bot.get_cog('HelpInterface')
+    commands = cog.get_commands()
+    print([c.name for c in commands])
+
 #START THE BOT
 if __name__ == "__main__":
     bot.remove_command('help')
+    bot.setup_hook = setup
     bot.run(DISCORD_TOKEN)

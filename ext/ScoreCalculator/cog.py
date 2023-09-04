@@ -76,6 +76,6 @@ class ScoreCalculator(commands.Cog):
                 raw_scores[2] + uma[2],
                 raw_scores[3] + uma[3]]
 
-def setup(bot):
-    bot.add_cog(ScoreCalculator(bot))
+async def setup(bot):
+    await bot.add_cog(ScoreCalculator(bot))
             

@@ -96,5 +96,5 @@ class PlayerNicknames(commands.Cog):
         '''Displays all names.'''
         print(self.players)
 
-def setup(bot):
-    bot.add_cog(PlayerNicknames(bot))
+async def setup(bot):
+    await bot.add_cog(PlayerNicknames(bot))

@@ -792,10 +792,10 @@ class ContestManagerInterface(commands.Cog):
 
         return response
 
-def setup(bot):
+async def setup(bot):
     i = ContestManagerInterface(bot)
     asyncio.create_task(i.async_setup())
-    bot.add_cog(i)
+    await bot.add_cog(i)
 
 # https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks
 def chunk_pad(it, size, padval=None):
