@@ -250,7 +250,11 @@ class MajsoulChannel():
             for serviceDescriptor in self.proto.DESCRIPTOR.services_by_name.values():
                 try:
                     methodDescriptor = serviceDescriptor.FindMethodByName(methodName)
+                    # if not found then continue to the next serviceDescriptor
+                    if methodDescriptor == None:
+                        continue
                     break
+                # legacy, keeping this for now
                 except KeyError:
                     continue
 
