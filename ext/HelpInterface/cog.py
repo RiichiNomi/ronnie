@@ -1,8 +1,10 @@
 import asyncio
 import json
+import yaml
 
 from discord.ext import commands
-from discord import Embed
+from discord import Embed, app_commands, Interaction, Object
+from typing import Optional
 
 from ext.HelpInterface.command_emojis import command_emojis
 
@@ -31,15 +33,25 @@ class HelpInterface(commands.Cog):
                             self.help_embed.add_field(name=f"{command_emojis[command.name]} {command.name}", value=command.short_doc, inline=True)
                         else:
                             self.help_embed.add_field(name=command.name, value=command.short_doc, inline=True)
-    
-    @commands.command(name='help')
-    async def send_help_message(self, ctx, command_name:str=None):
-        '''Displays this message.'''
-        
+
+    @app_commands.command(name="help", description="Display the help message.")
+    @app_commands.describe(command_name="(optional) Command to learn more about.")
+    # TODO: make this come from the bot?
+    @app_commands.choices(command_name=[
+        app_commands.Choice(name="scores", value="scores"),
+        app_commands.Choice(name="list", value="list"),
+        app_commands.Choice(name="register", value="register"),
+        app_commands.Choice(name="who", value="who"),
+        app_commands.Choice(name="pause", value="pause"),
+        app_commands.Choice(name="unpause", value="unpause")])
+    async def help(self, interaction, command_name : Optional[app_commands.Choice[str]]):
+        await interaction.response.defer()
+
+        # general help message
         if command_name is None:
-            await ctx.send(embed=self.help_embed)
+            await interaction.followup.send(embed=self.help_embed)
         else:
-            command = self.bot.get_command(command_name)
+            command = self.bot.get_command(command_name.value)
 
             if command is None:
                 return
@@ -52,9 +64,13 @@ class HelpInterface(commands.Cog):
             description = f'{command.help}'
             embed = Embed(title=title, description=description)
             embed.set_thumbnail(url=ICHIHIME_THUMBNAIL)
-            await ctx.send(embed=embed)
+            await interaction.followup.send(embed=embed)
     
 
 async def setup(bot):
-    await bot.add_cog(HelpInterface(bot))
+    with open('servers.yaml', 'r') as file:
+        config_raw = yaml.safe_load(file)
+
+    servers = [Object(id=int(server['server_id'])) for server in config_raw['servers']]
+    await bot.add_cog(HelpInterface(bot), guilds=servers)
 

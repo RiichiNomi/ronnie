@@ -43,6 +43,8 @@ async def on_ready():
 async def on_command_error(ctx: commands.Context, error: commands.CommandError):
     if isinstance(error, commands.errors.NotOwner):
         await ctx.send(f"Missing privileges for this cmd")
+    elif isinstance(error, commands.errors.CommandNotFound):
+        await ctx.send(f"Command not found")
     else:
         raise error
 
@@ -87,6 +89,11 @@ async def reload_extension(ctx, extension_name=None):
             bot.reload_extension(extension)
         
         await ctx.send(f"Reloaded all extensions.")
+
+@bot.command(name='sync', hidden=True)
+async def sync(ctx: commands.Context):
+    await bot.tree.sync(guild=ctx.guild)
+    await ctx.send(f"Synced slash commands exclusive to this server ({ctx.guild.name}).")
 
 async def setup():
     for extension in EXTENSIONS:
