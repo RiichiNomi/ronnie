@@ -93,15 +93,12 @@ async def reload_extension(ctx, extension_name=None):
 @bot.command(name='sync', hidden=True)
 async def sync(ctx: commands.Context):
     await bot.tree.sync(guild=ctx.guild)
-    await ctx.send(f"Synced slash commands exclusive to this server ({ctx.guild.name}).")
+    await ctx.send(f"Updated slash commands for {ctx.guild.name}.")
 
 async def setup():
     for extension in EXTENSIONS:
         print(f'Loading extension: {extension}')
         await bot.load_extension(extension)
-    cog = bot.get_cog('HelpInterface')
-    commands = cog.get_commands()
-    print([c.name for c in commands])
 
 #START THE BOT
 if __name__ == "__main__":
