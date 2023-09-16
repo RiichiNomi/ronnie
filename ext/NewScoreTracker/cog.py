@@ -339,6 +339,7 @@ class TournamentScoreTracker(commands.Cog):
         Displays a score table that automatically updates with the latest scores whenever a Majsoul game in the tournament lobby concludes.
         """
         await interaction.response.defer()
+        await interaction.followup.send('Sending scores.')
 
         ContestManager = self.bot.get_cog('ContestManagerInterface')
         res = await ContestManager.client.call('fetchContestGameRule')
@@ -361,7 +362,7 @@ class TournamentScoreTracker(commands.Cog):
         if self.game_log_filter != None:
             dt_start = self.game_log_filter.datetime_start.date()
             dt_end = self.game_log_filter.datetime_end.date()
-            await interaction.followup.send(f"MONTHLY scores ({dt_start} to {dt_end})")
+            await interaction.channel.send(f"MONTHLY scores ({dt_start} to {dt_end})")
 
         df = await self.create_score_table(starting_points, target_points, uma, sanma)
         df = df.sort_values(by=self.field_total_score, ascending=False)
@@ -371,13 +372,13 @@ class TournamentScoreTracker(commands.Cog):
         scores = await self.convert_to_multiple_strings(df, self.score_table_display_fields)
 
         for s in scores:
-            await interaction.followup.send(s)
+            await interaction.channel.send(s)
 
         # Weekly scores
         if self.weekly_filter != None:
             dt_start = self.weekly_filter.datetime_start.date()
             dt_end = self.weekly_filter.datetime_end.date()
-            await interaction.followup.send(f"WEEKLY scores ({dt_start} to {dt_end})")
+            await interaction.channel.send(f"WEEKLY scores ({dt_start} to {dt_end})")
 
         df = await self.create_score_table(starting_points, target_points, uma, sanma, self.weekly_filter)
         df = df.sort_values(by=self.field_total_score, ascending=False)
@@ -387,7 +388,7 @@ class TournamentScoreTracker(commands.Cog):
         scores = await self.convert_to_multiple_strings(df, self.score_table_display_fields)
 
         for s in scores:
-            await interaction.followup.send(s)
+            await interaction.channel.send(s)
 
 async def setup(bot):
     t = TournamentScoreTracker(bot)

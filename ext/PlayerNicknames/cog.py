@@ -36,7 +36,7 @@ class PlayerNicknames(commands.Cog):
         self.players[str(user.id)] = player
     
     def exists(self, user):
-        return user.id in self.players['discord_id'].values
+        return str(user.id) in self.players.keys()
     
     @app_commands.command(name='who')
     async def display_player_names(self, interaction : Interaction):

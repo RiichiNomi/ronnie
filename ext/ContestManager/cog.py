@@ -8,9 +8,11 @@ import random
 import yaml
 import csv
 import requests
+import yaml
 
 from discord.ext import commands
-from discord import Embed
+from discord import Embed, Object, Interaction, app_commands
+from typing import Optional
 
 from modules.pymjsoul import mjsoul
 from modules.pymjsoul.channel import MajsoulChannel, GeneralMajsoulError
@@ -99,7 +101,6 @@ class ContestManagerInterface(commands.Cog):
         # Pick the first contest as the default one
         self.main_channel_id = int(config_raw['contests'][0]['channel_id'])
 
-        self.main_channel = None
         self.list_message = None
         self.rules = None
 
@@ -140,10 +141,9 @@ class ContestManagerInterface(commands.Cog):
         await self.client.subscribe('NotifyContestGameStart', self.on_NotifyContestGameStart)
         await self.client.subscribe('NotifyContestGameEnd', self.on_NotifyContestGameEnd)
 
-    async def is_admin(self, ctx, channel_id = None):
-        contest = self.contests[channel_id or ctx.channel.id]
-        if ctx.author.id not in contest['administrator_user_ids']:
-            await ctx.send("Only administrators may use that command.")
+    def is_admin(self, user_id, channel_id):
+        contest = self.contests[channel_id]
+        if user_id not in contest['administrator_user_ids']:
             return False
         return True
 
@@ -186,17 +186,19 @@ class ContestManagerInterface(commands.Cog):
         elif str(reaction.emoji) == REACTION_BOT:
             await self.shuffle(reaction.message.channel, True)
 
-    @commands.command(name='rules')
-    async def display_tournament_rules(self, ctx):
+    @app_commands.command(name='rules', description='Displays the game rules')
+    async def display_tournament_rules(self, interaction : Interaction):
         '''
         Displays the game rules.
 
-        Usage: `ms/rules`
+        Usage: `/rules`
 
         Displays a summary of the game rules that the current tournament lobby implements.
         '''
+        await interaction.response.defer()
+
         if not self.client.websocket or not self.client.websocket.open:
-                await ctx.send('Client not connected.')
+                await interaction.followup.send('Client not connected.')
                 return
 
         embed = Embed(title=self.contest.contest_name, description='Ruleset Summary:')
@@ -254,297 +256,311 @@ class ContestManagerInterface(commands.Cog):
             #Local Yaku
             embed.add_field(name='Local Yaku', value=(rules.guyi_mode == 1))
 
-        await ctx.send(embed=embed)
+        await interaction.followup.send(embed=embed)
 
-    @commands.command(name='tournament', hidden=True)
-    async def load_table(self, ctx, path:str = None):
+    @app_commands.command(name='tournament', description='Loads a tournament layout from a local CSV file')
+    @app_commands.describe(path='Path to the tournament CSV file')
+    async def load_table(self, interaction, path: Optional[str]):
         """
         Loads a tournament multi-table layout from a local file formatted as a CSV.
 
-        Usage: `ms/tournament <localfile.csv>`
+        Usage: `/tournament <localfile.csv>`
         Each row represents a table and is a comma separated list of Mahjong Soul nicknames.
         In each row, the first person is East, the second is South and so on.
 
         To prevent path traversal the path is basename'd. The file must exist in the cwd
         of the bot and end in .csv. '.' and '..' are automatically rejected.
         """
-        if ctx.channel.id != self.main_channel_id:
+        await interaction.response.defer()
+
+        if interaction.channel_id != self.main_channel_id:
+            await interaction.followup.send('Wrong channel')
             return
         
-        if not self.has_contest_role(ctx.author, ctx.channel.id):
+        if not self.has_contest_role(interaction.user, interaction.channel_id):
+            await interaction.followup.send('Only contest roles may use that command.')
             return
 
-        self.main_channel = ctx.channel
+        if not self.is_admin(interaction.user.id, interaction.channel_id):
+            await interaction.followup.send('Only administrators may use that command.')
+            return
 
-        async with ctx.channel.typing():
-            if not await self.is_admin(ctx):
-                return
+        base = os.path.basename(path)
+        if base == '.' or base == '..' or os.path.splitext(base)[1] != '.csv':
+            await interaction.followup.send(f'Invalid path {path}')
+            return
 
-            base = os.path.basename(path)
-            if base == '.' or base == '..' or os.path.splitext(base)[1] != '.csv':
-                await ctx.send(f'Invalid path {path}')
-                return
+        # We can make sure all CSV players are registered in the tournament lobby.
+        # registered = {p.nickname for p in await self.client.contest_players}
 
-            # We can make sure all CSV players are registered in the tournament lobby.
-            # registered = {p.nickname for p in await self.client.contest_players}
+        # table size depends on the game setting
+        if is_sanma(self.rules.round_type):
+            table_size = 3
+        else:
+            table_size = 4
 
-            # table size depends on the game setting
-            if is_sanma(self.rules.round_type):
-                table_size = 3
-            else:
-                table_size = 4
+        self.layout = []
+        with open(os.path.join('brackets', base)) as csvfile:
+            c = csv.reader(csvfile)
+            for row in c:
+                if len(row) != table_size:
+                    await interaction.followup.send(f"Invalid row (not 4 players): {row}")
+                    return
 
-            self.layout = []
-            with open(os.path.join('brackets', base)) as csvfile:
-                c = csv.reader(csvfile)
-                for row in c:
-                    if len(row) != table_size:
-                        await ctx.send(f"Invalid row (not 4 players): {row}")
+                for person in row:
+                    if person == "":
+                        await interaction.followup.send(f"Invalid player in row: {row}")
                         return
+                    # elif person not in registered:
+                    #    await ctx.send(f"Player is not registered with tournament lobby: {person}")
+                    #    return
 
-                    for person in row:
-                        if person == "":
-                            await ctx.send(f"Invalid player in row: {row}")
-                            return
-                        # elif person not in registered:
-                        #    await ctx.send(f"Player is not registered with tournament lobby: {person}")
-                        #    return
+                self.layout.append(row)
 
-                    self.layout.append(row)
+        await interaction.followup.send(f"Tournament mode enabled with {len(self.layout)} tables!")
+        await self.dhs_show_active_players(interaction)
 
-            await ctx.send(f"Tournament mode enabled with {len(self.layout)} tables!")
-            await self.dhs_show_active_players(ctx)
-
-    @commands.command(name='register')
-    async def register(self, ctx, friend_id:int):
+    @app_commands.command(name='register', description='Register user in the lobby')
+    @app_commands.describe(friend_id='User ID')
+    async def register(self, interaction : Interaction, friend_id:int):
         '''
         Registers the user in the associated channel's lobby. Pass in a friend ID
 
-        Usage: `ms/register <friend_id>`
+        Usage: `/register <friend_id>`
         '''
-        if ctx.channel.id != self.main_channel_id:
+        if interaction.channel.id != self.main_channel_id:
             return
 	
-        if not self.has_contest_role(ctx.author, ctx.channel.id):
+        if not self.has_contest_role(interaction.user, interaction.channel.id):
             return
+        
+        await interaction.response.defer()
 
-        self.main_channel = ctx.channel
+        res = await self.client.call('searchAccountByEid', eids=[friend_id])
 
-        async with ctx.channel.typing():
-            res = await self.client.call('searchAccountByEid', eids=[friend_id])
+        # it's a success if we get here
+        if res.search_result:
+            nickname = res.search_result[0].nickname
+            account_id = res.search_result[0].account_id
 
-            # it's a success if we get here
-            if res.search_result:
-                nickname = res.search_result[0].nickname
-                account_id = res.search_result[0].account_id
+            res = await self.client.call('updateContestPlayer',
+                    setting_type=2, # add a player ignoring whats already there
+                    nicknames=[nickname],
+                    account_ids=[account_id])
 
-                res = await self.client.call('updateContestPlayer',
-                        setting_type=2, # add a player ignoring whats already there
-                        nicknames=[nickname],
-                        account_ids=[account_id])
+            await interaction.followup.send(f'Registered player into lobby: {nickname}')
+        else:
+            await interaction.followup.send(f"Couldn't look up friend code: {friend_id}")
 
-                await ctx.send(f'Registered player into lobby: {nickname}')
-            else:
-                await ctx.send(f"Couldn't look up friend code: {friend_id}")
-
-    @commands.command(name='pause')
-    async def dhs_pause(self, ctx, nickname:str = None):
+    @app_commands.command(name='pause', description='Pauses game for user')
+    @app_commands.describe(nickname='Player nickname')
+    async def dhs_pause(self, interaction : Interaction, nickname:Optional[str]):
         '''Pauses the game.
 
         Usage: `ms/pause <majsoul-user>`
 
         Pauses an ongoing game for `<majsoul-user>`. If the command is invoked without any arguments, the bot will use the Majsoul name registered to the Discord user who invoked the command.
         '''
-        if ctx.channel.id != self.main_channel_id:
+        if interaction.channel_id != self.main_channel_id:
             return
         
-        if not self.has_contest_role(ctx.author, ctx.channel.id):
+        if not self.has_contest_role(interaction.user, interaction.channel_id):
+            return
+        
+        await interaction.response.defer()
+
+        if not self.client.websocket or not self.client.websocket.open:
+            await interaction.followup.send('Client not connected.')
             return
 
-        self.main_channel = ctx.channel
+        if nickname is None:
+            PlayerNicknamesCog = self.bot.get_cog('PlayerNicknames')
+            p = PlayerNicknamesCog.players
 
-        async with ctx.channel.typing():
-            if not self.client.websocket or not self.client.websocket.open:
-                await ctx.send('Client not connected.')
+            if str(interaction.user.id) not in p.keys() or p[str(interaction.user.id)]['majsoul_name'] == None:
+                await interaction.followup.send(f'No Mahjsoul name registered for {interaction.user.mention}. Type ms/mahjsoul-name <your-mahjsoul-name> to register.')
                 return
+            else:
+                nickname = p[str(interaction.user.id)]['majsoul_name']
 
-            if nickname is None:
-                PlayerNicknamesCog = self.bot.get_cog('PlayerNicknames')
-                p = PlayerNicknamesCog.players
+        game_uuid = await self.client.get_game_id(nickname)
 
-                if ctx.author.id in p:
-                    nickname = p['majsoul_name']
-                else:
-                    await ctx.send(f'No Mahjsoul name registered for {ctx.author.mention}. Type r/mahjsoul-name <your-mahjsoul-name> to register.')
-                    return
+        if game_uuid == None:
+            await interaction.followup.send(f'Unable to find in-progress game for {nickname}')
+            return
 
-            game_uuid = await self.client.get_game_id(nickname)
+        try:
+            await self.client.pause(game_uuid)
+        except Exception as e:
+            await interaction.followup.send('Unable to pause game.')
+            return
 
-            if game_uuid == None:
-                await ctx.send(f'Unable to find in-progress game for {nickname}')
-                return
+        await interaction.followup.send(f'Game paused for {nickname}')
 
-            try:
-                await self.client.pause(game_uuid)
-            except Exception as e:
-                await ctx.send('Unable to pause game.')
-                return
-
-            await ctx.send(f'Game paused for {nickname}')
-
-    @commands.command(name='unpause', aliases=['resume'])
-    async def dhs_unpause(self, ctx, nickname:str = None):
+    @app_commands.command(name='unpause', description='Unpause game for player')
+    @app_commands.describe(nickname='Player to unpause')
+    async def dhs_unpause(self, interaction : Interaction, nickname: Optional[str]):
         '''Resumes the game.
 
-        Usage: `ms/unpause <majsoul-user>`
+        Usage: `/unpause <majsoul-user>`
 
         Resumes an ongoing game for `<majsoul-user>`. If the command is invoked without any arguments, the bot will use the Majsoul name registered to the Discord user who invoked the command.
         '''
-        if ctx.channel.id != self.main_channel_id:
+        await interaction.response.defer()
+
+        if interaction.channel_id != self.main_channel_id:
+            await interaction.followup.send('Wrong channel for that command')
             return
 
-        if not self.has_contest_role(ctx.author, ctx.channel.id):
+        if not self.has_contest_role(interaction.user, interaction.channel_id):
+            await interaction.followup.send('Only contest members may use that command.')
             return
 
-        self.main_channel = ctx.channel
+        if not self.client.websocket or not self.client.websocket.open:
+            await interaction.followup.send('Client not connected.')
+            return
 
-        async with ctx.channel.typing():
-            if not self.client.websocket or not self.client.websocket.open:
-                await ctx.send('Client not connected.')
+        if nickname is None:
+            PlayerNicknamesCog = self.bot.get_cog('PlayerNicknames')
+            p = PlayerNicknamesCog.players
+
+            if str(interaction.user.id) not in p.keys() or p[str(interaction.user.id)]['majsoul_name'] == None:
+                await interaction.followup.send(f'No Mahjsoul name registered for {interaction.user.mention}. Type ms/mahjsoul-name <your-mahjsoul-name> to register.')
                 return
+            else:
+                nickname = p[str(interaction.user.id)]['majsoul_name']
 
-            if nickname is None:
-                PlayerNicknamesCog = self.bot.get_cog('PlayerNicknames')
-                p = PlayerNicknamesCog.players
+        game_uuid = await self.client.get_game_id(nickname)
 
-                if ctx.author.id not in p['discord_id'].values or p['majsoul_name'][ctx.author.id] != None:
-                    nickname = p['majsoul_name'][ctx.author.id]
-                else:
-                    await ctx.send(f'No Mahjsoul name registered for {ctx.author.mention}. Type ms/mahjsoul-name <your-mahjsoul-name> to register.')
-                    return
+        if game_uuid == None:
+            await interaction.followup.send(f'Unable to find in-progress game for {nickname}')
+            return
 
-            game_uuid = await self.client.get_game_id(nickname)
+        try:
+            result = await self.client.unpause(game_uuid)
+        except Exception as e:
+            await interaction.followup.send('Unable to unpause game.')
+            return
 
-            if game_uuid == None:
-                await ctx.send(f'Unable to find in-progress game for {nickname}')
-                return
+        await interaction.followup.send(f'Game unpaused for {nickname}')
 
-            try:
-                result = await self.client.unpause(game_uuid)
-            except Exception as e:
-                await ctx.send('Unable to unpause game.')
-                return
-
-            await ctx.send(f'Game unpaused for {nickname}')
-
-    @commands.command(name='terminate')
-    async def dhs_terminate(self, ctx, nickname:str = None):
+    @app_commands.command(name='terminate', description='End game for user')
+    @app_commands.describe(nickname='Nickname to end game for')
+    async def dhs_terminate(self, interaction : Interaction, nickname: Optional[str]):
         '''Aborts the game that the user is in.
 
-        Usage: `ms/terminate <majsoul-user>`
+        Usage: `/terminate <majsoul-user>`
 
         Terminates an ongoing game for `<majsoul-user>`. If the command is invoked without any arguments, the bot will use the Majsoul name registered to the Discord user who invoked the command.
         '''
-        if ctx.channel.id != self.main_channel_id:
+        await interaction.response.defer()
+
+        if interaction.channel_id != self.main_channel_id:
+            await interaction.followup.send('Wrong channel for command.')
             return
 
-        if not self.has_contest_role(ctx.author, ctx.channel.id):
+        if not self.has_contest_role(interaction.user, interaction.channel_id):
+            await interaction.followup.send('Only contest members may use that command.')
+            return
+    
+        if not self.is_admin(interaction.user.id, interaction.channel_id):
+            await interaction.followup.send('Only administrators may use that command.')
             return
 
-        self.main_channel = ctx.channel
-
-        async with ctx.channel.typing():
-            if not await self.is_admin(ctx):
-                return
-
-            if not self.client.websocket or not self.client.websocket.open:
-                await ctx.send('Client not connected.')
-                return
-
-            if nickname is None:
-                PlayerNicknamesCog = self.bot.get_cog('PlayerNicknames')
-                p = PlayerNicknamesCog.players
-
-                if ctx.author.id not in p['discord_id'].values or p['majsoul_name'][ctx.author.id] != None:
-                    nickname = p['majsoul_name'][ctx.author.id]
-                else:
-                    await ctx.send(f'No Mahjsoul name registered for {ctx.author.mention}. Type ms/mahjsoul-name <your-mahjsoul-name> to register.')
-                    return
-
-            game_uuid = await self.client.get_game_id(nickname)
-
-            if game_uuid == None:
-                await ctx.send(f'Unable to find in-progress game for {nickname}')
-                return
-
-            await self.client.terminate(game_uuid)
-            await ctx.send(f'Game terminated for {nickname}')
-
-    @commands.command(name='manage', hidden=True)
-    async def dhs_manage_contest(self, ctx):
-        if not await self.is_admin(ctx, ctx.channel.id):
+        if not self.client.websocket or not self.client.websocket.open:
+            await interaction.followup.send('Client not connected.')
             return
-        elif ctx.channel.id not in self.contests:
-            await ctx.send('Unrecognized channel to manage a mahjong contest in.')
-        elif ctx.channel.id == self.main_channel_id:
-            await ctx.send('Already managing contest in this channel!')
+
+        if nickname is None:
+            PlayerNicknamesCog = self.bot.get_cog('PlayerNicknames')
+            p = PlayerNicknamesCog.players
+
+            if str(interaction.user.id) not in p.keys() or p[str(interaction.user.id)]['majsoul_name'] == None:
+                await interaction.followup.send(f'No Mahjsoul name registered for {interaction.user.mention}. Type ms/mahjsoul-name <your-mahjsoul-name> to register.')
+                return
+            else:
+                nickname = p[str(interaction.user.id)]['majsoul_name']
+
+        game_uuid = await self.client.get_game_id(nickname)
+
+        if game_uuid == None:
+            await interaction.followup.send(f'Unable to find in-progress game for {nickname}')
+            return
+
+        await self.client.terminate(game_uuid)
+        await interaction.followup.send(f'Game terminated for {nickname}')
+
+    @app_commands.command(name='manage', description='Manage the contest in this channel')
+    async def dhs_manage_contest(self, interaction: Interaction):
+        await interaction.response.defer()
+
+        if not self.is_admin(interaction.user.id, interaction.channel_id):
+            await interaction.followup.send('Only administrators may use that command.')
+            return
+        elif interaction.channel_id not in self.contests:
+            await interaction.followup.send('Unrecognized channel to manage a mahjong contest in.')
+        elif interaction.channel_id == self.main_channel_id:
+            await interaction.followup.send('Already managing contest in this channel!')
         else:
             if self.list_message != None:
                 await self.list_message.delete()
                 self.list_message = None
 
-            await self.manage_contest(self.contests[ctx.channel.id]['contest_id'])
-            self.main_channel_id = ctx.channel.id
-            self.main_channel = ctx.channel
-            await ctx.send('Now managing games in this channel!')
+            await self.manage_contest(self.contests[interaction.channel_id]['contest_id'])
+            self.main_channel_id = interaction.channel_id
+            await interaction.followup.send('Now managing games in this channel!')
 
-    @commands.command(name='casual')
-    async def cmd_casual(self, ctx):
+    @app_commands.command(name='casual', description='Revert the bot to casual mode')
+    async def cmd_casual(self, interaction : Interaction):
         "Revert the bot to casual mode."
-        if ctx.channel.id != self.main_channel_id:
+        await interaction.response.defer()
+
+        if interaction.channel_id != self.main_channel_id:
+            await interaction.followup.send('Wrong channel for this command.')
             return
 
-        self.main_channel = ctx.channel
+        if not self.is_admin(interaction.user.id, interaction.channel_id):
+            await interaction.followup.send('Only administrators can use this command.')
+            return
 
-        async with ctx.channel.typing():
-            if not await self.is_admin(ctx):
-                return
+        if self.layout:
+            await interaction.followup.send('Tournament mode disabled!')
+        else:
+            await interaction.followup.send('Shuffle mode already enabled. No changes made.')
 
-            if self.layout:
-                await ctx.send('Tournament mode disabled!')
-            else:
-                await ctx.send('Shuffle mode already enabled. No changes made.')
+        self.layout = []
+        await self.dhs_show_active_players(interaction)
 
-            self.layout = []
-            await self.dhs_show_active_players(ctx)
-
-    @commands.command(name='list')
-    async def dhs_show_active_players(self, ctx):
+    @app_commands.command(name='list', description='Displays the lobby')
+    async def dhs_show_active_players(self, interaction : Interaction):
         '''Displays the lobby.
 
-        Usage: `ms/list`
+        Usage: `/list`
 
         Displays the names of all players who are currently queued up in the Majsoul tournament lobby.
         '''
-        if ctx.channel.id != self.main_channel_id:
+        await interaction.response.defer()
+        if interaction.channel_id != self.main_channel_id:
+            await interaction.followup.send('Wrong channel for this command.')
             return
 
-        if not self.has_contest_role(ctx.author, ctx.channel.id):
+        if not self.has_contest_role(interaction.user, interaction.channel_id):
+            await interaction.followup.send('Only contest roles can use this command.')
             return
 
-        self.main_channel = ctx.channel
-        async with ctx.channel.typing():
-            if not self.client.websocket or not self.client.websocket.open:
-                await ctx.send('Client not connected.')
-                return
+        if not self.client.websocket or not self.client.websocket.open:
+            await interaction.send('Client not connected.')
+            return
 
-            if self.list_message != None:
-                await self.list_message.delete()
+        if self.list_message != None:
+            await self.list_message.delete()
 
-            games, queued = await self.client.display_players()
-            list_display = self.render_lobby_output(games, queued)
+        games, queued = await self.client.display_players()
+        list_display = self.render_lobby_output(games, queued)
 
-            self.list_message = await self.main_channel.send(list_display)
+
+        await interaction.followup.send('Sending list')
+        self.list_message = await interaction.channel.send(list_display)
 
     async def shuffle(self, discord_channel, withBots=False):
         if self.layout:
@@ -698,8 +714,6 @@ class ContestManagerInterface(commands.Cog):
         self._started_event = None
 
     async def on_NotifyContestMatchingPlayer(self, name, msg):
-        if self.main_channel == None:
-            return
 
         prev_active = set([p.nickname for p in self.client._active_players])
         prev_playing = set([p.nickname for g in self.client._ongoing_games for p in g.players])
@@ -795,7 +809,12 @@ class ContestManagerInterface(commands.Cog):
 async def setup(bot):
     i = ContestManagerInterface(bot)
     asyncio.create_task(i.async_setup())
-    await bot.add_cog(i)
+    with open('servers.yaml', 'r') as file:
+        config_raw = yaml.safe_load(file)
+
+    servers = [Object(id=int(server['server_id'])) for server in config_raw['servers']]
+
+    await bot.add_cog(i, guilds=servers)
 
 # https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks
 def chunk_pad(it, size, padval=None):
