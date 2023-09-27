@@ -86,17 +86,8 @@ async def get_contest_management_servers():
         response = await session.get(CONTEST_MANAGEMENT_CONFIG_URL)
         text = await response.text()
 
-        port = re.search('[0-9]{4}', text).group()
+        for line in text.splitlines():
+            if '__MJ_DHS_WS__' in line:
+                 return [line.split('"')[1]]
 
-        url = f'https://mjusgs.mahjongsoul.com:{port}/api/customized_contest/random'
-        response = await session.get(url)
-        response = await response.json()
-
-        servers = []
-
-        try:
-            servers = response['servers']
-        except KeyError:
-            return []
-        
-        return [f'wss://{uri}' for uri in servers]
+        return []

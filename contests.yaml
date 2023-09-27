@@ -1,6 +1,6 @@
 contests:
   # Riichi Nomi NYC
-  - contest_id: 8723
+  - contest_id: 14175
     channel_id: 685471499691229269 # #online-meetups
     # channel_id: 813135165819715635 # #mahjong-dev
     administrator_user_ids:
