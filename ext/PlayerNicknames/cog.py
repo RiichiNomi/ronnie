@@ -58,6 +58,7 @@ class PlayerNicknames(commands.Cog):
 
         embed.add_field(name="Majsoul", value=self.players[str(interaction.user.id)]['majsoul_name'])
         embed.add_field(name="Tenhou", value=self.players[str(interaction.user.id)]['tenhou_name'])
+        embed.add_field(name="RC", value=self.players[str(interaction.user.id)]['rc_name'])
 
         await interaction.followup.send(embed=embed)
 
@@ -96,6 +97,22 @@ class PlayerNicknames(commands.Cog):
         self.save()
 
         await interaction.followup.send(f'Tenhou nickname registered for {interaction.user.mention}.')
+
+    @app_commands.command(name='rc-name')
+    @app_commands.describe(name='riichi city name to register')
+    async def register_rc_name(self, interaction : Interaction, name: str):
+        '''Registers your RC name.
+        
+        Usage: /rc-name <name>
+
+        '''
+        await interaction.response.defer()
+
+        self.ensure(interaction.user)
+        self.players[str(interaction.user.id)]['rc_name'] = name
+        self.save()
+
+        await interaction.followup.send(f'RC nickname registered for {interaction.user.mention}.')
     
     @commands.command(name='display-names', hidden=True)
     async def display_names(self, ctx):
