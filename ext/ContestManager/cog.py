@@ -680,10 +680,10 @@ class ContestManagerInterface(commands.Cog):
         # If a game ended, and we observe there are now 0 games,
         # and the contest has a ping, ping it!
         contest = self.contests[self.main_channel_id]
-        allow_roles = contest.get('allow_roles', [])
+        notify_roles = contest.get('notify_roles', [])
 
-        if len(games) == 0 and allow_roles:
-            msg = ' '.join([f'<@&{role_id}>' for role_id in allow_roles]) + ' ' + random.choice(TAG_MESSAGES)
+        if len(games) == 0 and notify_roles:
+            msg = ' '.join([f'<@&{role_id}>' for role_id in notify_roles]) + ' ' + random.choice(TAG_MESSAGES)
             await self.main_channel.send(msg)
 
     async def on_NotifyContestGameStart(self, _, msg):
