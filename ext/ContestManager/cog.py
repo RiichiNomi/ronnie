@@ -260,6 +260,7 @@ class ContestManagerInterface(commands.Cog):
 
     @app_commands.command(name='tournament', description='Loads a tournament layout from a local CSV file')
     @app_commands.describe(path='Path to the tournament CSV file')
+    @app_commands.default_permissions(administrator=True)
     async def load_table(self, interaction, path: Optional[str]):
         """
         Loads a tournament multi-table layout from a local file formatted as a CSV.
@@ -491,6 +492,7 @@ class ContestManagerInterface(commands.Cog):
         await interaction.followup.send(f'Game terminated for {nickname}')
 
     @app_commands.command(name='manage', description='Manage the contest in this channel')
+    @app_commands.default_permissions(administrator=True)
     async def dhs_manage_contest(self, interaction: Interaction):
         await interaction.response.defer()
 
