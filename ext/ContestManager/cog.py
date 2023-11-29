@@ -174,12 +174,12 @@ class ContestManagerInterface(commands.Cog):
         if reaction.message.id != self.list_message.id:
             return
         
-        await reaction.message.channel.send(f"{user.name} pressed the button.")
+        await reaction.message.channel.send(f"{user.display_name} pressed the button.")
 
         try:
             await reaction.remove(user)
         except:
-            print(f"Couldn't remove reaction for {user.name}")
+            print(f"Couldn't remove reaction for {user.display_name}")
 
         if str(reaction.emoji) == REACTION_HUMAN:
             await self.shuffle(reaction.message.channel, False)
@@ -688,7 +688,8 @@ class ContestManagerInterface(commands.Cog):
         elif not record:
             response = f'An unknown game concluded: {msg.game_uuid}'
 
-        await self.main_channel.send(response)
+        channel = self.bot.get_channel(self.main_channel_id)
+        await channel.send(response)
 
         if self.list_message != None:
             games, queued = await self.refresh_message()
@@ -702,14 +703,14 @@ class ContestManagerInterface(commands.Cog):
 
         if len(games) == 0 and notify_roles:
             msg = ' '.join([f'<@&{role_id}>' for role_id in notify_roles]) + ' ' + random.choice(TAG_MESSAGES)
-            await self.main_channel.send(msg)
+            await channel.send(msg)
 
     async def on_NotifyContestGameStart(self, _, msg):
         if not self._started_event:
             print(f'NotifyContestGameStart received but not waiting for a game!')
             return
 
-        nicknames = ' | '.join([p.nickname for p in msg.game_info.players])
+        nicknames = ' | '.join([p.nickname or 'Computer' for p in msg.game_info.players])
         self.active_games[msg.game_info.game_uuid] = nicknames
 
         self._started_event.set()
