@@ -250,10 +250,7 @@ class MajsoulChannel():
             for serviceDescriptor in self.proto.DESCRIPTOR.services_by_name.values():
                 try:
                     methodDescriptor = serviceDescriptor.FindMethodByName(methodName)
-<<<<<<< HEAD
                     # if not found then continue to the next serviceDescriptor
-=======
->>>>>>> e04b0b1 (update bot setup and cogs for discord 2.3.2)
                     if methodDescriptor == None:
                         continue
                     break
