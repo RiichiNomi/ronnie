@@ -46,7 +46,7 @@ class PlayerNicknames(commands.Cog):
 
         Displays the Majsoul and Tenhou names that have been registered for the Discord user.
         '''
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
 
         self.ensure(interaction.user)
         self.save()
@@ -60,7 +60,7 @@ class PlayerNicknames(commands.Cog):
         embed.add_field(name="Tenhou", value=self.players[str(interaction.user.id)]['tenhou_name'])
         embed.add_field(name="RC", value=self.players[str(interaction.user.id)]['rc_name'])
 
-        await interaction.followup.send(embed=embed)
+        await interaction.followup.send(embed=embed,ephemeral=True)
 
     @app_commands.command(name='majsoul-name')
     @app_commands.describe(name='majsoul name to register')
@@ -73,13 +73,13 @@ class PlayerNicknames(commands.Cog):
         for being able to use `ms/pause` or `ms/unpause` without specifying
         that name.
         '''
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
 
         self.ensure(interaction.user)
         self.players[str(interaction.user.id)]['majsoul_name'] = name
         self.save()
 
-        await interaction.followup.send(f'Majsoul nickname registered for {interaction.user.mention}.')
+        await interaction.followup.send(f'Majsoul nickname registered for {interaction.user.mention}.', ephemeral=True)
     
     @app_commands.command(name='tenhou-name')
     @app_commands.describe(name='tenhou name to register')
@@ -90,13 +90,13 @@ class PlayerNicknames(commands.Cog):
         
         Linkes your tenhou name to your Discord account. Currently this has no use.
         '''
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
 
         self.ensure(interaction.user)
         self.players[str(interaction.user.id)]['tenhou_name'] = name
         self.save()
 
-        await interaction.followup.send(f'Tenhou nickname registered for {interaction.user.mention}.')
+        await interaction.followup.send(f'Tenhou nickname registered for {interaction.user.mention}.', ephemeral=True)
 
     @app_commands.command(name='rc-name')
     @app_commands.describe(name='riichi city name to register')
@@ -106,13 +106,13 @@ class PlayerNicknames(commands.Cog):
         Usage: /rc-name <name>
 
         '''
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
 
         self.ensure(interaction.user)
         self.players[str(interaction.user.id)]['rc_name'] = name
         self.save()
 
-        await interaction.followup.send(f'RC nickname registered for {interaction.user.mention}.')
+        await interaction.followup.send(f'RC nickname registered for {interaction.user.mention}.', ephemeral=True)
     
     @commands.command(name='display-names', hidden=True)
     async def display_names(self, ctx):

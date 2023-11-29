@@ -561,8 +561,7 @@ class ContestManagerInterface(commands.Cog):
         list_display = self.render_lobby_output(games, queued)
 
 
-        await interaction.followup.send('Sending list')
-        self.list_message = await interaction.channel.send(list_display)
+        self.list_message = await interaction.followup.send(list_display, wait=True)
 
     async def shuffle(self, discord_channel, withBots=False):
         if self.layout:
