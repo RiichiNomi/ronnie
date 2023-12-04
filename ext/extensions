@@ -3,3 +3,4 @@ ext.ContestManager.cog
 ext.ScoreCalculator.cog
 ext.PlayerNicknames.cog
 ext.HelpInterface.cog
+ext.NLeague.cog

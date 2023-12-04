@@ -1,9 +1,10 @@
 import asyncio
 import json
 import random
+import yaml
 
 from discord.ext import commands
-from discord import Embed
+from discord import Embed, app_commands, Interaction, Object
 
 NICKNAME_FILE = 'ext/PlayerNicknames/NAMES.json'
 
@@ -26,75 +27,101 @@ class PlayerNicknames(commands.Cog):
             json.dump(self.players, f)
     
     def ensure(self, user):
-        player = self.players.get(user.id, {
+        player = self.players.get(str(user.id), {
             'majsoul_name': None,
             'tenhou_name': None,
         })
 
-        player['discord_name'] = user.name
-        self.players[user.id] = player
+        player['discord_name'] = user.display_name
+        self.players[str(user.id)] = player
     
     def exists(self, user):
-        return user.id in self.players['discord_id'].values
+        return str(user.id) in self.players.keys()
     
-    @commands.command(name='who')
-    async def display_player_names(self, ctx):
+    @app_commands.command(name='who')
+    async def display_player_names(self, interaction : Interaction):
         '''Displays your registered names.
         
-        Usage: `ms/who`
+        Usage: `/who`
 
         Displays the Majsoul and Tenhou names that have been registered for the Discord user.
         '''
+        await interaction.response.defer(ephemeral=True)
 
-        self.ensure(ctx.author)
+        self.ensure(interaction.user)
         self.save()
 
         embed = Embed(description="Registered account names:")
 
-        embed.set_author(name=f"{ctx.author.name}", icon_url=ctx.author.avatar_url)
-        embed.set_thumbnail(url=ctx.author.avatar_url)
+        embed.set_author(name=f"{interaction.user.display_name}", icon_url=interaction.user.avatar)
+        embed.set_thumbnail(url=interaction.user.avatar)
 
-        embed.add_field(name="Majsoul", value=self.players[ctx.author.id]['majsoul_name'])
-        embed.add_field(name="Tenhou", value=self.players[ctx.author.id]['tenhou_name'])
+        embed.add_field(name="Majsoul", value=self.players[str(interaction.user.id)]['majsoul_name'])
+        embed.add_field(name="Tenhou", value=self.players[str(interaction.user.id)]['tenhou_name'])
+        embed.add_field(name="RC", value=self.players[str(interaction.user.id)]['rc_name'])
 
-        await ctx.send(embed=embed)
+        await interaction.followup.send(embed=embed,ephemeral=True)
 
-    @commands.command(name='majsoul-name', aliases=['mahjsoul-name'])
-    async def register_mahjsoul_name(self, ctx, name:str):
+    @app_commands.command(name='majsoul-name')
+    @app_commands.describe(name='majsoul name to register')
+    async def register_mahjsoul_name(self, interaction: Interaction, name:str):
         '''Registers your majsoul name.
         
-        Usage: `ms/majsoul-name <name>`
+        Usage: `/majsoul-name <name>`
 
         Links your majsoul name to your Discord account. This is a prerequisite
         for being able to use `ms/pause` or `ms/unpause` without specifying
         that name.
         '''
+        await interaction.response.defer(ephemeral=True)
 
-        self.ensure(ctx.author)
-        self.players[ctx.author.id]['majsoul_name'] = name
+        self.ensure(interaction.user)
+        self.players[str(interaction.user.id)]['majsoul_name'] = name
         self.save()
 
-        await ctx.send(f'Majsoul nickname registered for {ctx.author.mention}.')
+        await interaction.followup.send(f'Majsoul nickname registered for {interaction.user.mention}.', ephemeral=True)
     
-    @commands.command(name='tenhou-name')
-    async def register_tenhou_name(self, ctx, name:str):
+    @app_commands.command(name='tenhou-name')
+    @app_commands.describe(name='tenhou name to register')
+    async def register_tenhou_name(self, interaction : Interaction, name:str):
         '''Registers your tenhou name.
         
-        Usage: `ms/tenhou-name <name>`
+        Usage: `/tenhou-name <name>`
         
         Linkes your tenhou name to your Discord account. Currently this has no use.
         '''
+        await interaction.response.defer(ephemeral=True)
 
-        self.ensure(ctx.author)
-        self.players[ctx.author.id]['tenhou_name'] = name
+        self.ensure(interaction.user)
+        self.players[str(interaction.user.id)]['tenhou_name'] = name
         self.save()
 
-        await ctx.send(f'Tenhou nickname registered for {ctx.author.mention}.')
+        await interaction.followup.send(f'Tenhou nickname registered for {interaction.user.mention}.', ephemeral=True)
+
+    @app_commands.command(name='rc-name')
+    @app_commands.describe(name='riichi city name to register')
+    async def register_rc_name(self, interaction : Interaction, name: str):
+        '''Registers your RC name.
+        
+        Usage: /rc-name <name>
+
+        '''
+        await interaction.response.defer(ephemeral=True)
+
+        self.ensure(interaction.user)
+        self.players[str(interaction.user.id)]['rc_name'] = name
+        self.save()
+
+        await interaction.followup.send(f'RC nickname registered for {interaction.user.mention}.', ephemeral=True)
     
     @commands.command(name='display-names', hidden=True)
     async def display_names(self, ctx):
         '''Displays all names.'''
         print(self.players)
 
-def setup(bot):
-    bot.add_cog(PlayerNicknames(bot))
+async def setup(bot):
+    with open('servers.yaml', 'r') as file:
+        config_raw = yaml.safe_load(file)
+
+    servers = [Object(id=int(server['server_id'])) for server in config_raw['servers']]
+    await bot.add_cog(PlayerNicknames(bot), guilds=servers)

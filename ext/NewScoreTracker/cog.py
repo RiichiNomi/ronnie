@@ -7,11 +7,14 @@ import pickle
 import pytz
 import unicodedata
 import json
+import yaml
 
 from datetime import date, datetime
 from dateutil.relativedelta import relativedelta, MO, FR
 
+from discord import app_commands, Interaction, Object
 from discord.ext import commands
+from typing import Optional
 
 from tabulate import tabulate
 
@@ -255,30 +258,43 @@ class TournamentScoreTracker(commands.Cog):
 
         return messages
 
-    @commands.command(name='set-datetime-filter', aliases=['set-filter'])
-    async def command_set_datetime_filter(self, ctx, start: str = "", end: str = ""):
-        try:
-            datetime_start = datetime.fromisoformat(start)
-        except ValueError as e:
-            datetime_start = datetime.min
+    @app_commands.command(name='set-datetime-filter', description='Sets datetime filter for scores')
+    @app_commands.describe(start="(optional) Start time")
+    @app_commands.describe(end="(optional) End time")
+    async def command_set_datetime_filter(self, interaction : Interaction, start : Optional[str], end : Optional[str]):
+        await interaction.response.defer()
 
-        try:
-            datetime_end = datetime.fromisoformat(end)
-        except ValueError as e:
+        if start is None:
+            datetime_start = datetime.min
+        else:
+            try:
+                datetime_start = datetime.fromisoformat(start)
+            except ValueError as e:
+                datetime_start = datetime.min
+
+        if end is None:
             datetime_end = datetime.max
+        else:
+            try:
+                datetime_end = datetime.fromisoformat(end)
+            except ValueError as e:
+                datetime_end = datetime.max
 
         self.game_log_filter = GameLogFilter(datetime_start, datetime_end)
 
-        await ctx.send(f"{datetime_start.isoformat()} to {datetime_end.isoformat()}")
+        await interaction.followup.send(f"{datetime_start.isoformat()} to {datetime_end.isoformat()}")
 
-    @commands.command(name="stop-log-search", aliases=['stop-search', 'stop'])
-    async def command_stop_log_search(self, ctx):
+    @app_commands.command(name="stop-log-search", description='Stop searching logs')
+    async def command_stop_log_search(self, interaction : Interaction):
+        await interaction.response.defer()
         self.event_stop_log_search.set()
+        await interaction.followup.send('Stopped search')
 
-    @commands.command(name="retrieve-logs", aliases=["get-logs"])
-    async def command_retrieve_logs(self, ctx):
+    @app_commands.command(name="retrieve-logs", description='Pulls logs')
+    async def command_retrieve_logs(self, interaction : Interaction):
+        await interaction.response.defer()
         num_found = await self.get_logs()
-        await ctx.send(f"Found {num_found} games.")
+        await interaction.followup.send(f"Found {num_found} games.")
 
     async def get_logs(self):
         ContestManager = self.bot.get_cog('ContestManagerInterface')
@@ -313,8 +329,8 @@ class TournamentScoreTracker(commands.Cog):
         await self.record_multiple_games(hits)
         return len(hits)
 
-    @commands.command(name='scores', aliases=['score'])
-    async def command_display_table(self, ctx):
+    @app_commands.command(name='scores', description='Displays weekly and monthly scores')
+    async def command_display_table(self, interaction : Interaction):
         """
         Displays the score table.
 
@@ -322,6 +338,8 @@ class TournamentScoreTracker(commands.Cog):
 
         Displays a score table that automatically updates with the latest scores whenever a Majsoul game in the tournament lobby concludes.
         """
+        await interaction.response.defer()
+        await interaction.followup.send('Sending scores.')
 
         ContestManager = self.bot.get_cog('ContestManagerInterface')
         res = await ContestManager.client.call('fetchContestGameRule')
@@ -344,7 +362,7 @@ class TournamentScoreTracker(commands.Cog):
         if self.game_log_filter != None:
             dt_start = self.game_log_filter.datetime_start.date()
             dt_end = self.game_log_filter.datetime_end.date()
-            await ctx.send(f"MONTHLY scores ({dt_start} to {dt_end})")
+            await interaction.channel.send(f"MONTHLY scores ({dt_start} to {dt_end})")
 
         df = await self.create_score_table(starting_points, target_points, uma, sanma)
         df = df.sort_values(by=self.field_total_score, ascending=False)
@@ -354,13 +372,13 @@ class TournamentScoreTracker(commands.Cog):
         scores = await self.convert_to_multiple_strings(df, self.score_table_display_fields)
 
         for s in scores:
-            await ctx.send(s)
+            await interaction.channel.send(s)
 
         # Weekly scores
         if self.weekly_filter != None:
             dt_start = self.weekly_filter.datetime_start.date()
             dt_end = self.weekly_filter.datetime_end.date()
-            await ctx.send(f"WEEKLY scores ({dt_start} to {dt_end})")
+            await interaction.channel.send(f"WEEKLY scores ({dt_start} to {dt_end})")
 
         df = await self.create_score_table(starting_points, target_points, uma, sanma, self.weekly_filter)
         df = df.sort_values(by=self.field_total_score, ascending=False)
@@ -370,11 +388,16 @@ class TournamentScoreTracker(commands.Cog):
         scores = await self.convert_to_multiple_strings(df, self.score_table_display_fields)
 
         for s in scores:
-            await ctx.send(s)
+            await interaction.channel.send(s)
 
-def setup(bot):
+async def setup(bot):
     t = TournamentScoreTracker(bot)
-    bot.add_cog(t)
+    with open('servers.yaml', 'r') as file:
+        config_raw = yaml.safe_load(file)
+
+    servers = [Object(id=int(server['server_id'])) for server in config_raw['servers']]
+
+    await bot.add_cog(t, guilds=servers)
 
 def is_sanma(round_type):
     return round_type in [11, 12, 13, 14]

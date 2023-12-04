@@ -12,5 +12,5 @@ class BotPresenceInterface(commands.Cog):
     async def set_bot_activity_name(self, ctx):
         await self.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="ms/help"))
 
-def setup(bot):
-    bot.add_cog(BotPresenceInterface(bot))
+async def setup(bot):
+    await bot.add_cog(BotPresenceInterface(bot))

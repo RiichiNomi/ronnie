@@ -163,5 +163,5 @@ class TournamentScoreTracker(commands.Cog):
     def pickle_file(channel_id):
         return f'ext/ScoreTracker/score-sheets/{channel_id}.pickle'
 
-def setup(bot):
-    bot.add_cog(TournamentScoreTracker(bot))
+async def setup(bot):
+    await bot.add_cog(TournamentScoreTracker(bot))
