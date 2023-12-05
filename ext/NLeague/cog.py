@@ -101,17 +101,18 @@ class NLeague(commands.Cog):
     @app_commands.command(name="irl-stats", description="Pull irl stats")
     @app_commands.describe(name="Player name")
     async def irl_stats(self, interaction, name:str):
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
 
         headers = {'wix-site-id': self.wix_site_id, 'Authorization': self.wix_token,
                 'Content-Type': 'application/json'}
-        body = {"dataCollectionId": "Members", "query": {"filter": {"title": "{}".format(name)}, "paging": {"limit": 1}}}
+        body = {"dataCollectionId": "Members", "query": {"filter": {"title": {"$contains" : "{}".format(name)}}, "fields": ["title", "id"]}}
         r = requests.post(QUERY_URL, json=body, headers=headers)
         if r.status_code == 200:
             body = r.json()
 
             if len(body['dataItems']) == 1:
                 mem_id = body['dataItems'][0]['id']
+                full_name = body['dataItems'][0]['data']['title']
                 body = {"dataCollectionId": "Score", "query": {"filter": {"member": "{}".format(mem_id)}, "fields": ["Score", "uma", "penalty"], "paging": {"limit": 1000}}}
 
                 r = requests.post(QUERY_URL, json=body, headers=headers)
@@ -134,18 +135,24 @@ class NLeague(commands.Cog):
                     embed.set_author(name=f"{self.bot.user.display_name}", icon_url=self.bot.user.avatar)
                     embed.set_thumbnail(url='https://static.wixstatic.com/media/3f033d_06fbcec6270d431082ed5f820c0efd86~mv2.png/v1/fill/w_422,h_422,al_c,q_85,usm_0.66_1.00_0.01,enc_auto/RATCHINOMI_AV_med.png')
 
-                    embed.add_field(name='Name', value=name, inline=True)
+                    embed.add_field(name='Name', value=full_name, inline=True)
                     embed.add_field(name="Score", value="{:.1f}".format(total), inline=True)
                     embed.add_field(name="Games", value=count, inline=True)
                     embed.add_field(name="Average", value=average, inline=True)
 
-                    await interaction.followup.send(embed=embed)
+                    await interaction.followup.send(embed=embed, ephemeral=True)
                 else:
-                    await interaction.followup.send('Error pulling scores for {}'.format(name))
-            else: 
-                await interaction.followup.send('Error finding user {}'.format(name))
+                    await interaction.followup.send('Error pulling scores for {}'.format(full_name), ephemeral=True)
+            elif len(body['dataItems']) > 1: 
+                s = 'Found multiple members with that name:\n```'
+                for member in body['dataItems']:
+                    s += member['data']['title'] + '\n'
+                s += '```'
+                await interaction.followup.send(s, ephemeral=True)
+            else:
+                await interaction.followup.send('Found no members matching {}'.format(name), ephemeral=True)
         else: 
-            await interaction.followup.send('Error finding user {}'.format(name))
+            await interaction.followup.send('Error contacting db', ephemeral=True)
 
 
 
