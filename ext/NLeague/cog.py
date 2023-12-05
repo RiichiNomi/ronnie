@@ -100,12 +100,23 @@ class NLeague(commands.Cog):
 
     @app_commands.command(name="irl-stats", description="Pull irl stats")
     @app_commands.describe(name="Player name")
-    async def irl_stats(self, interaction, name:str):
+    @app_commands.describe(exact="(optional) force exact match")
+    async def irl_stats(self, interaction, name:str, exact : Optional[bool]):
         await interaction.response.defer(ephemeral=True)
+
+
+        if exact == None:
+            # default to fuzzy
+            exact = False
+
+        if exact:
+            filter = {"filter": {"title":  "{}".format(name)}}
+        else:
+            filter = {"filter": {"title": {"$contains" : "{}".format(name)}}}
 
         headers = {'wix-site-id': self.wix_site_id, 'Authorization': self.wix_token,
                 'Content-Type': 'application/json'}
-        body = {"dataCollectionId": "Members", "query": {"filter": {"title": {"$contains" : "{}".format(name)}}, "fields": ["title", "id"]}}
+        body = {"dataCollectionId": "Members", "query": filter, "fields": ["title", "id"]}
         r = requests.post(QUERY_URL, json=body, headers=headers)
         if r.status_code == 200:
             body = r.json()
