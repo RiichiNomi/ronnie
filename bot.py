@@ -44,7 +44,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
     if isinstance(error, commands.errors.NotOwner):
         await ctx.send(f"Missing privileges for this cmd")
     elif isinstance(error, commands.errors.CommandNotFound):
-        await ctx.send(f"Command not found")
+        await ctx.send(f"Command not found, try checking slash commands (/command)")
     else:
         raise error
 

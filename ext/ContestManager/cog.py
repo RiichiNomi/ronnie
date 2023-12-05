@@ -173,9 +173,6 @@ class ContestManagerInterface(commands.Cog):
             return
         if reaction.message.id != self.list_message.id:
             return
-        
-        await reaction.message.channel.send(f"{user.display_name} pressed the button.")
-
         try:
             await reaction.remove(user)
         except:
@@ -185,6 +182,11 @@ class ContestManagerInterface(commands.Cog):
             await self.shuffle(reaction.message.channel, False)
         elif str(reaction.emoji) == REACTION_BOT:
             await self.shuffle(reaction.message.channel, True)
+        else:
+            return
+    
+        await reaction.message.channel.send(f"{user.display_name} pressed the button.")
+
 
     @app_commands.command(name='rules', description='Displays the game rules')
     async def display_tournament_rules(self, interaction : Interaction):
@@ -541,7 +543,7 @@ class ContestManagerInterface(commands.Cog):
 
         Displays the names of all players who are currently queued up in the Majsoul tournament lobby.
         '''
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
         if interaction.channel_id != self.main_channel_id:
             await interaction.followup.send('Wrong channel for this command.')
             return
@@ -551,7 +553,7 @@ class ContestManagerInterface(commands.Cog):
             return
 
         if not self.client.websocket or not self.client.websocket.open:
-            await interaction.send('Client not connected.')
+            await interaction.followup.send('Client not connected.')
             return
 
         if self.list_message != None:
@@ -561,7 +563,8 @@ class ContestManagerInterface(commands.Cog):
         list_display = self.render_lobby_output(games, queued)
 
 
-        self.list_message = await interaction.followup.send(list_display, wait=True)
+        await interaction.followup.send('Sending list', ephemeral=True)
+        self.list_message = await self.bot.get_channel(self.main_channel_id).send(list_display)
 
     async def shuffle(self, discord_channel, withBots=False):
         if self.layout:

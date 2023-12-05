@@ -338,8 +338,7 @@ class TournamentScoreTracker(commands.Cog):
 
         Displays a score table that automatically updates with the latest scores whenever a Majsoul game in the tournament lobby concludes.
         """
-        await interaction.response.defer()
-        await interaction.followup.send('Sending scores.')
+        await interaction.response.send_message('Sending scores', ephemeral=True)
 
         ContestManager = self.bot.get_cog('ContestManagerInterface')
         res = await ContestManager.client.call('fetchContestGameRule')
