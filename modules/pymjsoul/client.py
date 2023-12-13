@@ -5,7 +5,7 @@ from .channel import MajsoulChannel
 from .mjsoul import get_contest_management_servers
 
 class MajsoulClient(MajsoulChannel):
-    def __init__(self, proto, access_token, log_messages=True):
+    def __init__(self, proto, access_token, log_messages=False):
         super().__init__(proto, log_messages)
 
         self._access_token = access_token
@@ -26,7 +26,7 @@ class MajsoulClient(MajsoulChannel):
         return res
 
 class ContestManagerClient(MajsoulChannel):
-    def __init__(self, proto, access_token, log_messages=True):
+    def __init__(self, proto, access_token, log_messages=False):
         super().__init__(proto, log_messages)
 
         self._access_token = access_token

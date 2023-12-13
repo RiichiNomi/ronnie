@@ -558,10 +558,10 @@ class ContestManagerInterface(commands.Cog):
 
         if self.list_message != None:
             await self.list_message.delete()
+            self.list_message = None
 
         games, queued = await self.client.display_players()
         list_display = self.render_lobby_output(games, queued)
-
 
         await interaction.followup.send('Sending list', ephemeral=True)
         self.list_message = await self.bot.get_channel(self.main_channel_id).send(list_display)

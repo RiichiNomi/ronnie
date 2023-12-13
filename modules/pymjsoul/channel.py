@@ -29,7 +29,7 @@ class GeneralMajsoulError(Exception):
 class MajsoulChannel():
     _RESPONSE_TIMEOUT_DURATION = 10
 
-    def __init__(self, proto, log_messages=True):
+    def __init__(self, proto, log_messages=False):
         self.websocket = None
         self.websocket_lock = asyncio.Lock()
 
@@ -111,9 +111,10 @@ class MajsoulChannel():
                 # Duplicate notifications can be received next to each other.
                 # Never process the same message twice.
                 if (name, msg) != self.MostRecentNotify:
-                    print("Notification received.")
-                    print(name)
-                    print(msg)
+                    if self.log_messages:
+                        print("Notification received.")
+                        print(name)
+                        print(msg)
                     self.MostRecentNotify = (name, msg)
 
                     await self.Notifications.put((name, msg))
