@@ -1,4 +1,5 @@
 import asyncio
+from itertools import zip_longest
 from logging import exception
 import math
 import os
@@ -12,7 +13,7 @@ import yaml
 from datetime import date, datetime
 from dateutil.relativedelta import relativedelta, MO, FR
 
-from discord import app_commands, Interaction, Object
+from discord import app_commands, Embed, Interaction, Object, PartialMessage, PartialMessageable
 from discord.ext import commands
 from typing import Optional
 
@@ -54,7 +55,7 @@ class TournamentScoreTracker(commands.Cog):
 
     yonma_player_name_fields = ['1st', '2nd', '3rd', '4th']
     yonma_player_point_fields = ['Points 1', 'Points 2', 'Points 3', 'Points 4']
-    
+
     sanma_player_name_fields = ['1st', '2nd', '3rd']
     sanma_player_point_fields = ['Points 1', 'Points 2', 'Points 3']
 
@@ -81,12 +82,6 @@ class TournamentScoreTracker(commands.Cog):
         first_monday_date = (now + relativedelta(day=1, weekday=MO(1)))
         last_friday_date = (now + relativedelta(day=31, weekday=FR(-1)))
         self.game_log_filter = GameLogFilter(first_monday_date, last_friday_date)
-
-        this_monday_date = (now + relativedelta(weekday=MO(-1)))
-        this_friday_date = (this_monday_date + relativedelta(weekday=FR(1)))
-
-        self.weekly_filter = GameLogFilter(this_monday_date, this_friday_date)
-
         self.event_stop_log_search = asyncio.Event()
 
         self.initialize_dataframe()
@@ -96,7 +91,7 @@ class TournamentScoreTracker(commands.Cog):
         self.SANMA_GAME_RECORDS = self.SANMA_GAME_RECORDS.set_index(
             self.game_record_index, drop=False)
         pd.set_option("display.unicode.east_asian_width", True)
-        
+
         self.YONMA_GAME_RECORDS = pd.DataFrame(columns=self.yonma_game_record_fields)
         self.YONMA_GAME_RECORDS = self.YONMA_GAME_RECORDS.set_index(
             self.game_record_index, drop=False)
@@ -234,29 +229,12 @@ class TournamentScoreTracker(commands.Cog):
         return df
 
 
-    async def convert_to_multiple_strings(self, df, fields, numalign='right', stralign='right'):
+    async def convert_to_embed(self, df, fields):
         table = df
         table_list = [table]
 
-        digested = [[index, row.loc[self.field_total_score], f'{row.loc[self.field_first]}-{row.loc[self.field_second]}-{row.loc[self.field_third]}-{row.loc[self.field_fourth]}', row.loc[self.field_majsoul_name]] for index, row in df.iterrows()]
-
-        table_string = tabulate(digested, headers=['#', 'Total', 'Record', 'Name'], floatfmt="+.1f", numalign=numalign)
-
-        messages = []
-        current_msg = ''
-        for line in table_string.splitlines():
-            if len(line) > DISCORD_MAX_CHAR_LIMIT:
-                raise Exception('really long message which you could handle more intelligently')
-            elif len(line) + len(current_msg) < DISCORD_MAX_CHAR_LIMIT:
-                current_msg += line + "\n"
-            else:
-                messages.append(f"```\n{current_msg}```\n")
-                current_msg = line + "\n"
-
-        if current_msg:
-            messages.append(f"```\n{current_msg}```\n")
-
-        return messages
+        digested = [f'{index}. `{row.loc[self.field_total_score]:=+6.1f}` `{row.loc[self.field_first]:2}+{row.loc[self.field_second]:2}+{row.loc[self.field_third]:2}+{row.loc[self.field_fourth]:2}={row.loc[self.field_first]+row.loc[self.field_second]+row.loc[self.field_third]+row.loc[self.field_fourth]:2}` {row.loc[self.field_majsoul_name]}' for index, row in df.iterrows()]
+        return '\n'.join(digested)
 
     @app_commands.command(name='set-datetime-filter', description='Sets datetime filter for scores')
     @app_commands.describe(start="(optional) Start time")
@@ -329,17 +307,25 @@ class TournamentScoreTracker(commands.Cog):
         await self.record_multiple_games(hits)
         return len(hits)
 
-    @app_commands.command(name='scores', description='Displays weekly and monthly scores')
-    async def command_display_table(self, interaction : Interaction):
-        """
-        Displays the score table.
+    async def update_score_posts(self, post_channel_id, post_ids):
+        contents = await self.get_score_content()
+        post_channel = self.bot.get_partial_messageable(post_channel_id)
 
-        Usage: `ms/scores`
+        # note: will silently fail if not enough post_ids
+        for content, post_id in zip_longest(contents, post_ids):
+            if post_id:
+                post = post_channel.get_partial_message(post_id)
+                if content:
+                    title, payload = content
+                    embed = Embed(title=title, description=payload)
+                    msg = ''
+                else:
+                    msg = '-'
+                    embed = None
 
-        Displays a score table that automatically updates with the latest scores whenever a Majsoul game in the tournament lobby concludes.
-        """
-        await interaction.response.send_message('Sending scores', ephemeral=True)
+                await post.edit(content=msg, embed=embed)
 
+    async def get_score_content(self):
         ContestManager = self.bot.get_cog('ContestManagerInterface')
         res = await ContestManager.client.call('fetchContestGameRule')
 
@@ -357,37 +343,22 @@ class TournamentScoreTracker(commands.Cog):
                                     rules.shunweima_3 + rules.shunweima_4))
             uma = [shunweima_1, rules.shunweima_2, rules.shunweima_3, rules.shunweima_4]
 
+        content = []
+
         # Monthly scores
         if self.game_log_filter != None:
             dt_start = self.game_log_filter.datetime_start.date()
             dt_end = self.game_log_filter.datetime_end.date()
-            await interaction.channel.send(f"MONTHLY scores ({dt_start} to {dt_end})")
 
         df = await self.create_score_table(starting_points, target_points, uma, sanma)
         df = df.sort_values(by=self.field_total_score, ascending=False)
         df = df.reset_index(drop=True)
         df.index += 1
 
-        scores = await self.convert_to_multiple_strings(df, self.score_table_display_fields)
+        embed = await self.convert_to_embed(df, self.score_table_display_fields)
+        content.append((f"MONTHLY scores ({dt_start} to {dt_end})", embed))
 
-        for s in scores:
-            await interaction.channel.send(s)
-
-        # Weekly scores
-        if self.weekly_filter != None:
-            dt_start = self.weekly_filter.datetime_start.date()
-            dt_end = self.weekly_filter.datetime_end.date()
-            await interaction.channel.send(f"WEEKLY scores ({dt_start} to {dt_end})")
-
-        df = await self.create_score_table(starting_points, target_points, uma, sanma, self.weekly_filter)
-        df = df.sort_values(by=self.field_total_score, ascending=False)
-        df = df.reset_index(drop=True)
-        df.index += 1
-
-        scores = await self.convert_to_multiple_strings(df, self.score_table_display_fields)
-
-        for s in scores:
-            await interaction.channel.send(s)
+        return content
 
 async def setup(bot):
     t = TournamentScoreTracker(bot)

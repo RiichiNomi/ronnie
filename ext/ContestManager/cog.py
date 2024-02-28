@@ -113,9 +113,37 @@ class ContestManagerInterface(commands.Cog):
         await self.login()
         await self.manage_contest(self.contests[self.main_channel_id]['contest_id'])
 
+        for contest in self.contests.values():
+            contest_posts = contest.get('posts', {})
+            list_post_id = contest_posts.get('list')
+            self.score_post_ids = contest_posts.get('scores', [])
+            self.post_channel_id = contest_posts.get('channel_id')
+
+            if self.post_channel_id:
+                post_channel = self.bot.get_channel(self.post_channel_id)
+            else:
+                raise Exception('need to set contests[].posts.channel_id to make new list and score posts')
+
+            if not self.score_post_ids:
+                self.score_post_ids = [(await post_channel.send(f'Score Post {n}')).id for n in range(5)]
+                print(f'New score posts created: {self.score_post_ids}')
+
+            if list_post_id:
+                self.list_message = await post_channel.fetch_message(list_post_id)
+            else:
+                self.list_message = await post_channel.send('List Post')
+                print(f'New list post created: {self.list_message.id}')
+
+
         # relies on NewScoreTracker being loaded first
         ScoreTrackerCog = self.bot.get_cog('TournamentScoreTracker')
         await ScoreTrackerCog.get_logs()
+
+        # update the scores post
+        await ScoreTrackerCog.update_score_posts(self.post_channel_id, self.score_post_ids)
+
+        # begin updating the list post now that self.list_message is set
+        await self.refresh_message()
 
     # Helpers for common tasks that can be either invoked by command or
     # automatically upon startup.
@@ -159,7 +187,7 @@ class ContestManagerInterface(commands.Cog):
             if role.id in allow_roles:
                 return True
         return False
-        
+
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
         if user.bot:
@@ -184,9 +212,8 @@ class ContestManagerInterface(commands.Cog):
             await self.shuffle(reaction.message.channel, True)
         else:
             return
-    
-        await reaction.message.channel.send(f"{user.display_name} pressed the button.")
 
+        print(f"{user.display_name} pressed the button.")
 
     @app_commands.command(name='rules', description='Displays the game rules')
     async def display_tournament_rules(self, interaction : Interaction):
@@ -279,7 +306,7 @@ class ContestManagerInterface(commands.Cog):
         if interaction.channel_id != self.main_channel_id:
             await interaction.followup.send('Wrong channel')
             return
-        
+
         if not self.has_contest_role(interaction.user, interaction.channel_id):
             await interaction.followup.send('Only contest roles may use that command.')
             return
@@ -331,13 +358,16 @@ class ContestManagerInterface(commands.Cog):
 
         Usage: `/register <friend_id>`
         '''
-        if interaction.channel.id != self.main_channel_id:
-            return
-	
-        if not self.has_contest_role(interaction.user, interaction.channel.id):
-            return
-        
+
         await interaction.response.defer()
+
+        if interaction.channel.id != self.main_channel_id:
+            await interaction.followup.send('Wrong Channel for this command')
+            return
+
+        if not self.has_contest_role(interaction.user, interaction.channel.id):
+            await interaction.followup.send('Only contest members may use that command.')
+            return
 
         res = await self.client.call('searchAccountByEid', eids=[friend_id])
 
@@ -364,13 +394,17 @@ class ContestManagerInterface(commands.Cog):
 
         Pauses an ongoing game for `<majsoul-user>`. If the command is invoked without any arguments, the bot will use the Majsoul name registered to the Discord user who invoked the command.
         '''
-        if interaction.channel_id != self.main_channel_id:
-            return
-        
-        if not self.has_contest_role(interaction.user, interaction.channel_id):
-            return
-        
+
         await interaction.response.defer()
+
+        if interaction.channel_id != self.main_channel_id:
+            await interaction.followup.send('Wrong Channel for this command')
+            return
+
+        if not self.has_contest_role(interaction.user, interaction.channel_id):
+            await interaction.followup.send('Only contest members can use that command')
+            return
+
 
         if not self.client.websocket or not self.client.websocket.open:
             await interaction.followup.send('Client not connected.')
@@ -465,7 +499,7 @@ class ContestManagerInterface(commands.Cog):
         if not self.has_contest_role(interaction.user, interaction.channel_id):
             await interaction.followup.send('Only contest members may use that command.')
             return
-    
+
         if not self.is_admin(interaction.user.id, interaction.channel_id):
             await interaction.followup.send('Only administrators may use that command.')
             return
@@ -535,7 +569,17 @@ class ContestManagerInterface(commands.Cog):
         self.layout = []
         await self.dhs_show_active_players(interaction)
 
-    @app_commands.command(name='list', description='Displays the lobby')
+    @app_commands.command(name='list', description='No longer does anything.')
+    async def deprecated_list(self, interaction : Interaction):
+        await interaction.response.defer(ephemeral=True)
+        await interaction.followup.send('This slash command is now disabled. Please check #online-queue-scores', ephemeral=True)
+
+    @app_commands.command(name='scores', description='No longer does anything.')
+    async def deprecated_scores(self, interaction : Interaction):
+        await interaction.response.defer(ephemeral=True)
+        await interaction.followup.send('This slash command is now disabled. Please check #online-queue-scores', ephemeral=True)
+
+#    @app_commands.command(name='list', description='Displays the lobby')
     async def dhs_show_active_players(self, interaction : Interaction):
         '''Displays the lobby.
 
@@ -571,6 +615,17 @@ class ContestManagerInterface(commands.Cog):
             return await self.perform_layout_assignment(discord_channel)
         else:
             return await self.random_assignment(discord_channel, withBots)
+
+    @app_commands.command(name='shuffle', description='Shuffles all queued players into games')
+    async def shuffle_command(self, interaction : Interaction):
+        await interaction.response.defer()
+
+        if self.layout:
+            await self.perform_layout_assignment(interaction.channel)
+        else:
+            await self.random_assignment(interaction.channel, False)
+
+        await interaction.followup.send('Starting games...')
 
     async def perform_layout_assignment(self, discord_channel):
         players = await self.client.active_players
@@ -650,7 +705,7 @@ class ContestManagerInterface(commands.Cog):
             if item.record.uuid == game_uuid:
                 return item.record
         return None
-    
+
     # @commands.command(name='record_one')
     # async def XXX_record_one(self, ctx, game_uuid:str):
     #     record = await self.locate_completed_game(game_uuid)
@@ -697,6 +752,9 @@ class ContestManagerInterface(commands.Cog):
             games, queued = await self.refresh_message()
         else:
             games, queued = await self.client.display_players()
+
+        # update the durable score post
+        await ScoreTrackerCog.update_score_posts(self.post_channel_id, self.score_post_ids)
 
         # If a game ended, and we observe there are now 0 games,
         # and the contest has a ping, ping it!
