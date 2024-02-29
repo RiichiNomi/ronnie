@@ -79,9 +79,9 @@ class TournamentScoreTracker(commands.Cog):
 
         # automatically determine filter start/end
         now = datetime.now().replace(hour=0, minute=0)
-        first_monday_date = (now + relativedelta(day=1, weekday=MO(1)))
-        last_friday_date = (now + relativedelta(day=31, weekday=FR(-1)))
-        self.game_log_filter = GameLogFilter(first_monday_date, last_friday_date)
+        first_day_date = (now + relativedelta(day=1))
+        last_day_date = (now + relativedelta(day=31))
+        self.game_log_filter = GameLogFilter(first_day_date, last_day_date)
         self.event_stop_log_search = asyncio.Event()
 
         self.initialize_dataframe()
@@ -371,11 +371,3 @@ async def setup(bot):
 
 def is_sanma(round_type):
     return round_type in [11, 12, 13, 14]
-
-def first_monday(year, month):
-    day = (8 - datetime.date(year, month, 1).weekday()) % 7
-    return datetime.date(year, month, day)
-
-def final_wednesday(year, month):
-    day = ((8+2) - datetime.date(year, month, 31).weekday()) % 7
-    return datetime.date(year, month, day)
